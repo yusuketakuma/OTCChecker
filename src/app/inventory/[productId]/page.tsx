@@ -24,6 +24,7 @@ import {
   signedIntegerInputProps,
 } from "@/lib/mobile-input";
 import {
+  clearStoredReceiptDefaults,
   readStoredReceiptDefaults,
   writeStoredReceiptDefaults,
 } from "@/lib/receipt-defaults";
@@ -335,8 +336,9 @@ export default function InventoryDetailPage() {
   const [adjustReasons, setAdjustReasons] = useState<Record<string, string>>({});
   const [disposeDrafts, setDisposeDrafts] = useState<Record<string, string>>({});
   const [disposeReasons, setDisposeReasons] = useState<Record<string, string>>({});
-  const [receiptExpiryDate, setReceiptExpiryDate] = useState(() => readStoredReceiptDefaults().expiryDate);
-  const [receiptQuantity, setReceiptQuantity] = useState(() => String(readStoredReceiptDefaults().quantity));
+  const [receiptExpiryDate, setReceiptExpiryDate] = useState("");
+  const [receiptQuantity, setReceiptQuantity] = useState("1");
+  const [receiptDefaultsReady, setReceiptDefaultsReady] = useState(false);
   const [saleDate, setSaleDate] = useState(todayJstKey());
   const [saleQuantity, setSaleQuantity] = useState("1");
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
@@ -390,8 +392,28 @@ export default function InventoryDetailPage() {
   }, [load]);
 
   useEffect(() => {
+    const storedDefaults = readStoredReceiptDefaults();
+
+    setReceiptExpiryDate(storedDefaults.expiryDate);
+    setReceiptQuantity(String(storedDefaults.quantity));
+    setReceiptDefaultsReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!receiptDefaultsReady) {
+      return;
+    }
+
     writeStoredReceiptDefaults(receiptExpiryDate, parsedReceiptQuantity ?? 1);
-  }, [parsedReceiptQuantity, receiptExpiryDate]);
+  }, [parsedReceiptQuantity, receiptDefaultsReady, receiptExpiryDate]);
+
+  function clearReceiptDefaults() {
+    setReceiptExpiryDate("");
+    setReceiptQuantity("1");
+    clearStoredReceiptDefaults();
+    setError("");
+    setMessage("入荷条件の保持をクリアしました。");
+  }
 
   const scrollToCurrentHash = useCallback(() => {
     const hash = window.location.hash;
@@ -874,6 +896,26 @@ export default function InventoryDetailPage() {
               ))}
             </div>
           </div>
+          {receiptExpiryDate || (parsedReceiptQuantity ?? 1) > 1 ? (
+            <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900 sm:col-span-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">前回の入荷条件を保持中</p>
+                  <p className="mt-1">
+                    期限日 {receiptExpiryDate || "未設定"} / 数量 {parsedReceiptQuantity ?? 1}個
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!isOnline || receiving}
+                  className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-emerald-900 ring-1 ring-emerald-200 disabled:opacity-50"
+                  onClick={clearReceiptDefaults}
+                >
+                  保持をクリア
+                </button>
+              </div>
+            </div>
+          ) : null}
           <Button
             className="w-full sm:col-span-2"
             disabled={!isOnline || receiving || !receiptExpiryDate || parsedReceiptQuantity === null}
