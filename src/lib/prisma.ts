@@ -1,6 +1,9 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 type PrismaClientInstance = Awaited<ReturnType<typeof createNodePrismaClient>>;
+type CloudflareEnvWithDb = {
+  DB?: unknown;
+};
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClientInstance;
@@ -8,6 +11,11 @@ const globalForPrisma = globalThis as unknown as {
 
 function getPrismaLogLevels(): Array<"error" | "warn"> {
   return process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"];
+}
+
+async function getCloudflareD1Binding() {
+  const { env } = await getCloudflareContext({ async: true });
+  return (env as CloudflareEnvWithDb).DB;
 }
 
 async function createNodePrismaClient() {
@@ -33,24 +41,29 @@ async function createCloudflarePrismaClient(db: unknown) {
 }
 
 async function createPrismaClient() {
+  let cloudflareContextError: unknown;
+
+  try {
+    const cloudflareDb = await getCloudflareD1Binding();
+
+    if (cloudflareDb) {
+      return createCloudflarePrismaClient(cloudflareDb);
+    }
+  } catch (error) {
+    cloudflareContextError = error;
+  }
+
   if (process.env.DATABASE_URL) {
     return globalForPrisma.prisma ?? createNodePrismaClient();
   }
 
-  try {
-    const { env } = await getCloudflareContext({ async: true });
-    const cloudflareEnv = env as {
-      DB?: unknown;
-    };
-
-    if (cloudflareEnv.DB) {
-      return createCloudflarePrismaClient(cloudflareEnv.DB);
-    }
-  } catch {
-    // Fall through to local Node.js / Next.js development using sqlite DATABASE_URL.
-  }
-
-  return globalForPrisma.prisma ?? createNodePrismaClient();
+  throw new Error(
+    "Prisma could not find a Cloudflare D1 binding (`env.DB`) or a `DATABASE_URL`. " +
+      "Deployed Cloudflare requests must provide the D1 binding, and local `next dev` requires `DATABASE_URL`.",
+    {
+      cause: cloudflareContextError,
+    },
+  );
 }
 
 export async function getPrisma() {
