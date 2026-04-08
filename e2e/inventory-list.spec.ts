@@ -26,6 +26,11 @@ test("在庫一覧の検索とバケット絞り込みが動作する", async ({
   await page.waitForResponse((r) => r.url().includes("/api/products") && r.status() === 200);
   await expect(page.getByText("期限切れE2E商品")).toBeVisible();
 
+  // バケットタブ: 本日
+  await page.getByRole("button", { name: "本日" }).click();
+  await page.waitForResponse((r) => r.url().includes("/api/products") && r.status() === 200);
+  await expect(page.getByText("本日E2E商品")).toBeVisible();
+
   // バケットタブ: 7日以内
   await page.getByRole("button", { name: "7日以内" }).click();
   await page.waitForResponse((r) => r.url().includes("/api/products") && r.status() === 200);

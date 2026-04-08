@@ -24,7 +24,7 @@ export type InventoryProductSummary = {
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
-  bucket: "expired" | "within7" | "within30" | "safe";
+  bucket: "expired" | "today" | "within7" | "within30" | "safe";
 };
 
 export type ProductMasterSummary = {
@@ -38,7 +38,7 @@ export type ProductMasterSummary = {
   activeLotCount: number;
   primaryLotId: string | null;
   canDelete: boolean;
-  bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
+  bucket: "expired" | "today" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 type ProductSummaryBucket = ProductMasterSummary["bucket"];
@@ -71,7 +71,11 @@ function getSummaryBucket(expiryDate: Date | string): ActiveInventoryBucket {
     return "expired";
   }
 
-  if (expiryBucket === "today" || expiryBucket === "within7") {
+  if (expiryBucket === "today") {
+    return "today";
+  }
+
+  if (expiryBucket === "within7") {
     return "within7";
   }
 
@@ -122,6 +126,10 @@ function matchesInventoryBucket(bucket: ActiveInventoryBucket, filter = "all") {
     return bucket === "expired";
   }
 
+  if (filter === "today") {
+    return bucket === "today";
+  }
+
   if (filter === "7d") {
     return bucket === "within7";
   }
@@ -142,7 +150,7 @@ function matchesProductMasterFilter(
   }
 
   if (filter === "attention") {
-    return bucket === "expired" || bucket === "within7" || bucket === "within30";
+    return bucket === "expired" || bucket === "today" || bucket === "within7" || bucket === "within30";
   }
 
   if (filter === "stocked") {
@@ -305,6 +313,7 @@ export async function getDashboardSummary() {
 
   const summary = {
     expiredCount: 0,
+    todayCount: 0,
     within7Count: 0,
     within30Count: 0,
     unmatchedCount,
@@ -326,7 +335,9 @@ export async function getDashboardSummary() {
 
     if (bucket === "expired") {
       summary.expiredCount += 1;
-    } else if (bucket === "today" || bucket === "within7") {
+    } else if (bucket === "today") {
+      summary.todayCount += 1;
+    } else if (bucket === "within7") {
       summary.within7Count += 1;
     } else if (bucket === "within30") {
       summary.within30Count += 1;

@@ -88,6 +88,13 @@ export async function seedDatabase(databaseUrl: string) {
       quantity: 5,
     });
     await createProductWithLot(prisma, {
+      name: "本日E2E商品",
+      spec: "15錠",
+      janCode: "4900000000009",
+      expiryDate: lotDate(0),
+      quantity: 2,
+    });
+    await createProductWithLot(prisma, {
       name: "7日以内E2E商品",
       spec: "20錠",
       janCode: "4900000000002",
