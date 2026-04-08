@@ -7,8 +7,8 @@
   "rules": [
     {
       "type": "CompiledWasm",
-      "globs": ["**/*.wasm"],
-      "fallthrough": false
+      "globs": ["**/*.wasm", "**/*.wasm?module"],
+      "fallthrough": true
     }
   ],
   "assets": {
