@@ -46,3 +46,22 @@ test("未登録JANコードで新規SKU作成→入荷登録ができる", async
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page.getByText("新規SKUを作成して入荷登録しました。")).toBeVisible();
 });
+
+test("未登録JANのprefillでも商品名と規格を保持したまま新規SKU候補として扱う", async ({ page }) => {
+  const janCode = `49000001${Date.now().toString().slice(-6)}`;
+  const prefilledName = `未登録prefill商品${Date.now().toString().slice(-4)}`;
+  const prefilledSpec = "24包";
+
+  await page.goto(
+    `/scan?jan=${encodeURIComponent(janCode)}&name=${encodeURIComponent(prefilledName)}&spec=${encodeURIComponent(prefilledSpec)}&quantity=2`,
+  );
+  await expect(page.getByRole("heading", { name: "バーコードから即登録" })).toBeVisible();
+
+  await expect(page.getByText("新規SKU候補")).toBeVisible();
+  await expect(page.getByPlaceholder("JANコード")).toHaveValue(janCode);
+  await expect(page.getByPlaceholder("商品名")).toHaveValue(prefilledName);
+  await expect(page.getByPlaceholder("規格")).toHaveValue(prefilledSpec);
+  await expect(page.getByPlaceholder("商品名")).toBeEnabled();
+  await expect(page.getByPlaceholder("規格")).toBeEnabled();
+  await expect(page.getByRole("button", { name: "登録する" })).toBeDisabled();
+});

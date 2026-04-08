@@ -290,8 +290,6 @@ function ScanPageContent() {
           setSpec(result.spec);
         } else {
           setLookupState({ status: "missing", janCode: code });
-          setName("");
-          setSpec("");
         }
       })
       .catch((cause) => {
@@ -304,8 +302,6 @@ function ScanPageContent() {
           janCode: code,
           message: cause.message,
         });
-        setName("");
-        setSpec("");
       });
 
     return () => {
