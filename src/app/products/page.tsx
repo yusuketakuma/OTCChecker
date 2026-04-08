@@ -11,6 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { fetchJson, postJson } from "@/lib/client";
+import {
+  janInputProps,
+  parsePositiveIntegerInput,
+  positiveIntegerInputProps,
+  sanitizeJanInput,
+} from "@/lib/mobile-input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { formatQuantity } from "@/lib/utils";
 
@@ -42,11 +48,12 @@ export default function ProductsPage() {
   const [spec, setSpec] = useState("");
   const [janCode, setJanCode] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("1");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const deferredQuery = useDeferredValue(query);
+  const initialLotQuantity = parsePositiveIntegerInput(quantity);
 
   async function loadProducts(search: string) {
     const data = await fetchJson<ProductMasterSummary[]>(
@@ -90,6 +97,12 @@ export default function ProductsPage() {
   }, [pathname, query, router]);
 
   async function createProduct() {
+    if (expiryDate && initialLotQuantity === null) {
+      setError("初回数量は1以上の整数で入力してください。");
+      setMessage("");
+      return;
+    }
+
     try {
       setCreating(true);
       setError("");
@@ -102,7 +115,7 @@ export default function ProductsPage() {
         initialLot: expiryDate
           ? {
               expiryDate,
-              quantity,
+              quantity: initialLotQuantity!,
             }
           : undefined,
       });
@@ -111,7 +124,7 @@ export default function ProductsPage() {
       setSpec("");
       setJanCode("");
       setExpiryDate("");
-      setQuantity(1);
+      setQuantity("1");
       setQuery("");
       setMessage(expiryDate ? "商品と初回ロットを登録しました。" : "商品マスタを登録しました。");
       await loadProducts("");
@@ -162,11 +175,10 @@ export default function ProductsPage() {
           />
           <Input
             disabled={!isOnline || creating}
-            inputMode="numeric"
-            autoComplete="off"
+            {...janInputProps}
             enterKeyHint="next"
             value={janCode}
-            onChange={(event) => setJanCode(event.target.value)}
+            onChange={(event) => setJanCode(sanitizeJanInput(event.target.value))}
             placeholder="JANコード"
           />
           <div className="grid gap-3 sm:grid-cols-2">
@@ -177,12 +189,10 @@ export default function ProductsPage() {
               onChange={(event) => setExpiryDate(event.target.value)}
             />
             <Input
-              min={1}
-              type="number"
-              inputMode="numeric"
+              {...positiveIntegerInputProps}
               enterKeyHint="done"
               value={quantity}
-              onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
+              onChange={(event) => setQuantity(event.target.value)}
               placeholder="初回数量（期限入力時のみ）"
               disabled={!isOnline || creating || !expiryDate}
             />
@@ -193,7 +203,14 @@ export default function ProductsPage() {
         </div>
         <Button
           className="w-full"
-          disabled={!isOnline || creating || !name.trim() || !spec.trim() || !janCode.trim()}
+          disabled={
+            !isOnline ||
+            creating ||
+            !name.trim() ||
+            !spec.trim() ||
+            !janCode.trim() ||
+            (Boolean(expiryDate) && initialLotQuantity === null)
+          }
           onClick={createProduct}
         >
           {creating ? "登録中..." : expiryDate ? "商品と初回ロットを追加" : "商品マスタを追加"}

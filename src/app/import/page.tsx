@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, putJson } from "@/lib/client";
+import { parsePositiveIntegerInput, positiveIntegerInputProps } from "@/lib/mobile-input";
 import { cn, formatQuantity } from "@/lib/utils";
 
 type PreviewResponse = {
@@ -125,7 +126,7 @@ export default function ImportPage() {
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [unmatched, setUnmatched] = useState<UnmatchedRow[]>([]);
   const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, string>>({});
-  const [receiptQuantityDrafts, setReceiptQuantityDrafts] = useState<Record<string, number>>({});
+  const [receiptQuantityDrafts, setReceiptQuantityDrafts] = useState<Record<string, string>>({});
   const [expiryDateDrafts, setExpiryDateDrafts] = useState<Record<string, string>>({});
   const [productNameDrafts, setProductNameDrafts] = useState<Record<string, string>>({});
   const [specDrafts, setSpecDrafts] = useState<Record<string, string>>({});
@@ -168,7 +169,7 @@ export default function ImportPage() {
       Object.fromEntries(rows.map((row) => [row.id, row.resolutionNote ?? "確認済み"])),
     );
     setReceiptQuantityDrafts(
-      Object.fromEntries(rows.map((row) => [row.id, row.remainingQuantity])),
+      Object.fromEntries(rows.map((row) => [row.id, String(row.remainingQuantity)])),
     );
     setExpiryDateDrafts(
       Object.fromEntries(rows.map((row) => [row.id, ""])),
@@ -282,7 +283,7 @@ export default function ImportPage() {
   async function receiveAndApply(row: UnmatchedRow) {
     const note = resolutionDrafts[row.id]?.trim();
     const expiryDate = expiryDateDrafts[row.id]?.trim();
-    const receiptQuantity = receiptQuantityDrafts[row.id] ?? 0;
+    const receiptQuantity = parsePositiveIntegerInput(receiptQuantityDrafts[row.id] ?? "");
     const productName = productNameDrafts[row.id]?.trim();
     const spec = specDrafts[row.id]?.trim();
 
@@ -296,7 +297,7 @@ export default function ImportPage() {
       return;
     }
 
-    if (receiptQuantity <= 0) {
+    if (receiptQuantity === null) {
       setError("入荷数量は1以上で入力してください。");
       return;
     }
@@ -562,13 +563,13 @@ export default function ImportPage() {
                           <FieldLabel>入荷数量</FieldLabel>
                           <Input
                             disabled={!isOnline}
-                            min={1}
-                            type="number"
-                            value={receiptQuantityDrafts[row.id] ?? row.remainingQuantity}
+                            {...positiveIntegerInputProps}
+                            enterKeyHint="done"
+                            value={receiptQuantityDrafts[row.id] ?? String(row.remainingQuantity)}
                             onChange={(event) =>
                               setReceiptQuantityDrafts((current) => ({
                                 ...current,
-                                [row.id]: Math.max(1, Number(event.target.value)),
+                                [row.id]: event.target.value,
                               }))
                             }
                           />

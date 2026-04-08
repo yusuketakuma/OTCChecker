@@ -13,6 +13,13 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, postJson } from "@/lib/client";
 import { normalizeJanCode } from "@/lib/csv";
 import { addDaysToDateKey, todayJstKey } from "@/lib/date";
+import {
+  coercePositiveIntegerInput,
+  janInputProps,
+  parsePositiveIntegerInput,
+  positiveIntegerInputProps,
+  sanitizeJanInput,
+} from "@/lib/mobile-input";
 
 type ProductLookup = {
   id: string;
@@ -40,25 +47,28 @@ const expiryPresets = [
 
 function readStoredReceiptDefaults() {
   if (typeof window === "undefined") {
-    return { expiryDate: "", quantity: 1 };
+    return { expiryDate: "", quantity: "1" };
   }
 
   try {
     const saved = window.localStorage.getItem(receiptDefaultsStorageKey);
 
     if (!saved) {
-      return { expiryDate: "", quantity: 1 };
+      return { expiryDate: "", quantity: "1" };
     }
 
     const parsed = JSON.parse(saved) as { expiryDate?: string; quantity?: number };
 
     return {
       expiryDate: typeof parsed.expiryDate === "string" ? parsed.expiryDate : "",
-      quantity: typeof parsed.quantity === "number" && parsed.quantity > 0 ? parsed.quantity : 1,
+      quantity:
+        typeof parsed.quantity === "number" && parsed.quantity > 0
+          ? String(parsed.quantity)
+          : "1",
     };
   } catch {
     window.localStorage.removeItem(receiptDefaultsStorageKey);
-    return { expiryDate: "", quantity: 1 };
+    return { expiryDate: "", quantity: "1" };
   }
 }
 
@@ -98,6 +108,7 @@ function ScanPageContent() {
   const lookupJanCodeRef = useRef("");
   const appliedPrefillRef = useRef(false);
   const normalizedJanCode = normalizeJanCode(janCode);
+  const parsedQuantity = parsePositiveIntegerInput(quantity);
   const isJanComplete = /^\d{8,14}$/.test(normalizedJanCode);
   const currentLookupMatchesJan = lookupState.janCode === normalizedJanCode;
   const product =
@@ -122,7 +133,7 @@ function ScanPageContent() {
     !isSubmitting &&
     isJanComplete &&
     Boolean(expiryDate) &&
-    quantity > 0 &&
+    parsedQuantity !== null &&
     !isLookupPending &&
     !lookupError &&
     (Boolean(product) || (requiresManualDetails && Boolean(name.trim()) && Boolean(spec.trim())));
@@ -141,13 +152,14 @@ function ScanPageContent() {
   }
 
   function handleJanChange(value: string) {
-    const nextNormalized = normalizeJanCode(value);
+    const nextValue = sanitizeJanInput(value);
+    const nextNormalized = normalizeJanCode(nextValue);
 
-    setJanCode(value);
+    setJanCode(nextValue);
     setMessage("");
 
     if (nextNormalized !== normalizedJanCode) {
-      resetLookupForJan(value);
+      resetLookupForJan(nextValue);
     }
   }
 
@@ -168,10 +180,10 @@ function ScanPageContent() {
       receiptDefaultsStorageKey,
       JSON.stringify({
         expiryDate,
-        quantity,
+        quantity: parsedQuantity ?? 1,
       }),
     );
-  }, [expiryDate, quantity]);
+  }, [expiryDate, parsedQuantity]);
 
   useEffect(() => {
     if (appliedPrefillRef.current) {
@@ -183,7 +195,7 @@ function ScanPageContent() {
     const prefillSpec = searchParams.get("spec") ?? "";
     const prefillExpiryDate = searchParams.get("expiryDate") ?? "";
     const prefillQuantityRaw = searchParams.get("quantity") ?? "";
-    const prefillQuantity = Number(prefillQuantityRaw);
+    const prefillQuantity = parsePositiveIntegerInput(prefillQuantityRaw);
 
     if (!prefillJan && !prefillName && !prefillSpec && !prefillExpiryDate && !prefillQuantityRaw) {
       appliedPrefillRef.current = true;
@@ -213,8 +225,8 @@ function ScanPageContent() {
       setExpiryDate(prefillExpiryDate);
     }
 
-    if (Number.isFinite(prefillQuantity) && prefillQuantity > 0) {
-      setQuantity(Math.max(1, Math.trunc(prefillQuantity)));
+    if (prefillQuantity !== null) {
+      setQuantity(String(prefillQuantity));
     }
   }, [isOnline, searchParams]);
 
@@ -283,6 +295,12 @@ function ScanPageContent() {
   }, [isJanComplete, isOnline, normalizedJanCode]);
 
   async function submit() {
+    if (parsedQuantity === null) {
+      setSubmitError("数量は1以上の整数で入力してください。");
+      setMessage("");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setSubmitError("");
@@ -293,7 +311,7 @@ function ScanPageContent() {
         await postJson("/api/lots", {
           productId: product.id,
           expiryDate,
-          quantity,
+          quantity: parsedQuantity,
         });
       } else {
         await postJson<{ id: string }>("/api/products", {
@@ -302,7 +320,7 @@ function ScanPageContent() {
           spec,
           initialLot: {
             expiryDate,
-            quantity,
+            quantity: parsedQuantity,
           },
         });
       }
@@ -390,8 +408,7 @@ function ScanPageContent() {
         <div className="grid gap-3">
           <Input
             disabled={isSubmitting}
-            inputMode="numeric"
-            autoComplete="off"
+            {...janInputProps}
             enterKeyHint="next"
             value={janCode}
             onChange={(event) => handleJanChange(event.target.value)}
@@ -438,34 +455,35 @@ function ScanPageContent() {
             <Button
               disabled={!isOnline || isSubmitting}
               variant="secondary"
-              onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+              onClick={() =>
+                setQuantity(String(Math.max(1, coercePositiveIntegerInput(quantity) - 1)))
+              }
             >
               -
             </Button>
             <Input
               disabled={!isOnline || isSubmitting}
               className="text-center"
-              type="number"
-              inputMode="numeric"
+              {...positiveIntegerInputProps}
               enterKeyHint="done"
               value={quantity}
-              onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
+              onChange={(event) => setQuantity(event.target.value)}
             />
             <Button
               disabled={!isOnline || isSubmitting}
               variant="secondary"
-              onClick={() => setQuantity((current) => current + 1)}
+              onClick={() => setQuantity(String(coercePositiveIntegerInput(quantity) + 1))}
             >
               +
             </Button>
           </div>
         </div>
         <p className="text-sm text-slate-500">{helperText}</p>
-        {(expiryDate || quantity > 1) ? (
+        {(expiryDate || (parsedQuantity ?? 1) > 1) ? (
           <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900">
             <p className="font-medium">前回の入荷条件を保持中</p>
             <p className="mt-1">
-              期限日 {expiryDate || "未設定"} / 数量 {quantity}個
+              期限日 {expiryDate || "未設定"} / 数量 {parsedQuantity ?? 1}個
             </p>
           </div>
         ) : null}
