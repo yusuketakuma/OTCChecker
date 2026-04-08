@@ -164,12 +164,26 @@ function ProductsPageContent({
     writeStoredReceiptDefaults(expiryDate, initialLotQuantity ?? 1);
   }, [expiryDate, initialLotQuantity]);
 
-  function clearReceiptDefaults() {
+  function resetInitialLotDraft(options?: { clearStored?: boolean; message?: string }) {
     setExpiryDate("");
     setQuantity("1");
-    clearStoredReceiptDefaults();
-    setMessage("入荷条件の保持をクリアしました。");
+
+    if (options?.clearStored) {
+      clearStoredReceiptDefaults();
+    }
+
+    if (options?.message) {
+      setMessage(options.message);
+    }
+
     setError("");
+  }
+
+  function clearReceiptDefaults() {
+    resetInitialLotDraft({
+      clearStored: true,
+      message: "入荷条件の保持をクリアしました。",
+    });
   }
 
   async function createProduct() {
@@ -331,6 +345,14 @@ function ProductsPageContent({
                 onChange={(event) => setExpiryDate(event.target.value)}
               />
               <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!isOnline || creating}
+                  className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200 disabled:opacity-50"
+                  onClick={() => resetInitialLotDraft({ message: "商品マスタのみ登録に切り替えました。" })}
+                >
+                  期限なし
+                </button>
                 {receiptExpiryPresets.map((preset) => (
                   <button
                     key={preset.label}
