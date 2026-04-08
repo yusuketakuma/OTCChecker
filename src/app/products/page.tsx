@@ -30,7 +30,16 @@ type ProductMasterSummary = {
   totalQuantity: number;
   activeLotCount: number;
   primaryLotId: string | null;
+  canDelete: boolean;
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
+};
+
+type ProductCreateResult = {
+  id: string;
+  name: string;
+  spec: string;
+  janCode: string;
+  action: "created" | "created-with-lot" | "existing" | "received-on-existing";
 };
 
 export default function ProductsPage() {
@@ -51,10 +60,12 @@ export default function ProductsPage() {
   const [expiryDate, setExpiryDate] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const deferredQuery = useDeferredValue(query);
   const initialLotQuantity = parsePositiveIntegerInput(quantity);
+  const janCodeValid = /^\d{8,14}$/.test(janCode);
 
   async function loadProducts(search: string) {
     const data = await fetchJson<ProductMasterSummary[]>(
@@ -109,7 +120,7 @@ export default function ProductsPage() {
       setError("");
       setMessage("");
 
-      await postJson("/api/products", {
+      const result = await postJson<ProductCreateResult>("/api/products", {
         name,
         spec,
         janCode,
@@ -127,12 +138,46 @@ export default function ProductsPage() {
       setExpiryDate("");
       setQuantity("1");
       setQuery("");
-      setMessage(expiryDate ? "商品と初回ロットを登録しました。" : "商品マスタを登録しました。");
+      setMessage(
+        result.action === "created-with-lot"
+          ? "商品と初回ロットを登録しました。"
+          : result.action === "received-on-existing"
+            ? "既存商品へ初回在庫を追加しました。"
+            : result.action === "existing"
+              ? "同じJANの商品があるため、既存商品を表示しました。"
+              : "商品マスタを登録しました。",
+      );
       await loadProducts("");
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function deleteProduct(item: ProductMasterSummary) {
+    if (!item.canDelete) {
+      setError("ロットが存在する商品は削除できません。");
+      return;
+    }
+
+    if (!window.confirm(`「${item.name}」を削除しますか。未入荷の商品だけ削除できます。`)) {
+      return;
+    }
+
+    try {
+      setDeletingId(item.productId);
+      setError("");
+      setMessage("");
+      await fetchJson(`/api/products/${item.productId}`, {
+        method: "DELETE",
+      });
+      setMessage("商品マスタを削除しました。");
+      await loadProducts(query.trim());
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -151,6 +196,16 @@ export default function ProductsPage() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>登録ガイド</CardTitle>
+        <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+          <p>1. 商品名・規格・JANを入力します。</p>
+          <p className="mt-2">2. 初回在庫も登録したい場合だけ、期限日と数量を入力します。</p>
+          <p className="mt-2">3. 同じJANがすでにある場合は、既存商品へ在庫追加として扱います。</p>
+          <p className="mt-2">4. 未入荷の商品だけ商品管理画面から削除できます。</p>
+        </div>
       </Card>
 
       <Card className="space-y-4">
@@ -201,6 +256,13 @@ export default function ProductsPage() {
           <p className="text-xs text-slate-500">
             期限を入れない場合は商品マスタのみ登録します。初回在庫を同時登録したいときだけ期限日と数量を入力してください。
           </p>
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-3 text-xs leading-5 text-slate-600">
+            <p>入力規則</p>
+            <p className="mt-1">商品名・規格: 1〜120文字</p>
+            <p className="mt-1">JANコード: 数字のみ8〜14桁。ハイフンは自動除去</p>
+            <p className="mt-1">初回数量: 1以上の整数</p>
+            <p className="mt-1">期限日: YYYY-MM-DD</p>
+          </div>
         </div>
         <Button
           className="w-full"
@@ -210,6 +272,7 @@ export default function ProductsPage() {
             !name.trim() ||
             !spec.trim() ||
             !janCode.trim() ||
+            !janCodeValid ||
             (Boolean(expiryDate) && initialLotQuantity === null)
           }
           onClick={createProduct}
@@ -220,6 +283,9 @@ export default function ProductsPage() {
           <p className="text-sm text-[var(--color-danger)]">
             オフライン中は商品登録を停止しています。接続回復後に登録してください。
           </p>
+        ) : null}
+        {!janCodeValid && janCode.trim() ? (
+          <p className="text-sm text-[var(--color-danger)]">JANコードは数字8〜14桁で入力してください。</p>
         ) : null}
         {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
         {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
@@ -289,6 +355,16 @@ export default function ProductsPage() {
                 >
                   在庫詳細
                 </Link>
+                {item.canDelete ? (
+                  <button
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 transition active:scale-[0.99] sm:col-span-2"
+                    disabled={deletingId === item.productId}
+                    onClick={() => void deleteProduct(item)}
+                    type="button"
+                  >
+                    {deletingId === item.productId ? "削除中..." : "商品を削除"}
+                  </button>
+                ) : null}
               </div>
             </Card>
           ))}

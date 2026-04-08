@@ -37,6 +37,7 @@ export type ProductMasterSummary = {
   totalQuantity: number;
   activeLotCount: number;
   primaryLotId: string | null;
+  canDelete: boolean;
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
@@ -198,7 +199,7 @@ export async function listProductMasters(params: {
 }) {
   const prisma = await getPrisma();
   const search = params.search?.trim();
-  const [products, activeLots] = await Promise.all([
+  const [products, activeLots, allLots] = await Promise.all([
     prisma.product.findMany({
       where: search
         ? {
@@ -224,9 +225,29 @@ export async function listProductMasters(params: {
       },
       orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     }),
+    prisma.inventoryLot.findMany({
+      where: {
+        product: search
+          ? {
+              OR: [
+                { name: { contains: search } },
+                { janCode: { contains: search } },
+              ],
+            }
+          : undefined,
+      },
+      select: {
+        id: true,
+        productId: true,
+      },
+    }),
   ]);
 
   const lotsByProductId = groupLotsByProductId(activeLots);
+  const allLotCountByProductId = allLots.reduce<Map<string, number>>((map, lot) => {
+    map.set(lot.productId, (map.get(lot.productId) ?? 0) + 1);
+    return map;
+  }, new Map());
 
   return products.map<ProductMasterSummary>((product) => {
     const lots = lotsByProductId.get(product.id) ?? [];
@@ -242,6 +263,7 @@ export async function listProductMasters(params: {
       earliestExpiry: summary.earliestExpiry,
       totalQuantity: summary.totalQuantity,
       activeLotCount: summary.activeLotCount,
+      canDelete: (allLotCountByProductId.get(product.id) ?? 0) === 0,
       bucket: summary.bucket,
     };
   });

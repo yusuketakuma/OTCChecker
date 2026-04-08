@@ -3,6 +3,8 @@ import { z } from "zod";
 import { normalizeJanCode } from "@/lib/csv";
 import { normalizeAlertDays } from "@/lib/date";
 
+const trimmedTextSchema = z.string().trim().min(1).max(120);
+
 const alertDaysSchema = z
   .array(z.number().int().min(0).max(365))
   .min(1)
@@ -17,8 +19,8 @@ const janCodeSchema = z
   });
 
 export const productSchema = z.object({
-  name: z.string().min(1).max(120),
-  spec: z.string().min(1).max(120),
+  name: trimmedTextSchema,
+  spec: trimmedTextSchema,
   janCode: janCodeSchema,
   alertDays: alertDaysSchema.optional(),
   initialLot: z

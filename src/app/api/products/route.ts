@@ -1,8 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
-import { parseDateOnly } from "@/lib/date";
-import { listInventoryProducts, listProductMasters } from "@/lib/inventory";
+import { listInventoryProducts, listProductMasters, receiveStockInTx } from "@/lib/inventory";
 import { getPrisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { productSchema } from "@/lib/validators";
@@ -37,7 +36,26 @@ export async function POST(request: Request) {
     }
 
     const settings = await getSettings();
-    const product = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.product.findUnique({
+        where: { janCode: parsed.data.janCode },
+      });
+
+      if (existing) {
+        if (parsed.data.initialLot) {
+          await receiveStockInTx(tx, {
+            productId: existing.id,
+            expiryDate: parsed.data.initialLot.expiryDate,
+            quantity: parsed.data.initialLot.quantity,
+          });
+        }
+
+        return {
+          ...existing,
+          action: parsed.data.initialLot ? "received-on-existing" : "existing",
+        };
+      }
+
       const created = await tx.product.create({
         data: {
           name: parsed.data.name,
@@ -48,28 +66,20 @@ export async function POST(request: Request) {
       });
 
       if (parsed.data.initialLot) {
-        const expiryDate = parseDateOnly(parsed.data.initialLot.expiryDate);
-        const lot = await tx.inventoryLot.create({
-          data: {
-            productId: created.id,
-            expiryDate,
-            quantity: parsed.data.initialLot.quantity,
-            initialQuantity: parsed.data.initialLot.quantity,
-          },
-        });
-
-        await tx.receiptRecord.create({
-          data: {
-            lotId: lot.id,
-            quantity: parsed.data.initialLot.quantity,
-          },
+        await receiveStockInTx(tx, {
+          productId: created.id,
+          expiryDate: parsed.data.initialLot.expiryDate,
+          quantity: parsed.data.initialLot.quantity,
         });
       }
 
-      return created;
+      return {
+        ...created,
+        action: parsed.data.initialLot ? "created-with-lot" : "created",
+      };
     });
 
-    return ok(product);
+    return ok(result);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return fail(409, "PRODUCT_ALREADY_EXISTS", "同じ JAN コードの商品がすでに存在します");
