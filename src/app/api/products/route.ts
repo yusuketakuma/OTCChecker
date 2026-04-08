@@ -1,4 +1,5 @@
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
 import { listProductMasters, listProductSummaries } from "@/lib/inventory";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
         name: parsed.data.name,
         spec: parsed.data.spec,
         janCode: parsed.data.janCode,
-        alertDays: parsed.data.alertDays ?? settings.defaultAlertDays,
+        alertDays: (parsed.data.alertDays ?? settings.defaultAlertDays) as Prisma.InputJsonValue,
       },
     });
 

@@ -6,7 +6,13 @@ import {
   UnmatchedReason,
 } from "@prisma/client";
 
-import { diffDaysFromToday, formatDateLabel, getExpiryBucket, parseDateOnly } from "@/lib/date";
+import {
+  diffDaysFromToday,
+  formatDateLabel,
+  getExpiryBucket,
+  normalizeAlertDays,
+  parseDateOnly,
+} from "@/lib/date";
 import { type ImportRow, type PreviewRow, normalizeJanCode } from "@/lib/csv";
 import { getPrisma } from "@/lib/prisma";
 
@@ -32,6 +38,18 @@ export type ProductMasterSummary = {
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
+function readAlertDays(value: Prisma.JsonValue | null | undefined) {
+  if (!Array.isArray(value)) {
+    return [30, 7, 0];
+  }
+
+  return normalizeAlertDays(
+    value
+      .map((item) => (typeof item === "number" ? item : Number(item)))
+      .filter((item): item is number => Number.isInteger(item) && item >= 0),
+  );
+}
+
 export async function listProductSummaries(params: {
   search?: string;
   bucket?: string;
@@ -44,7 +62,7 @@ export async function listProductSummaries(params: {
       product: search
         ? {
             OR: [
-              { name: { contains: search, mode: "insensitive" } },
+              { name: { contains: search } },
               { janCode: { contains: search } },
             ],
           }
@@ -123,7 +141,7 @@ export async function listProductMasters(params: {
       where: search
         ? {
             OR: [
-              { name: { contains: search, mode: "insensitive" } },
+              { name: { contains: search } },
               { janCode: { contains: search } },
             ],
           }
@@ -136,7 +154,7 @@ export async function listProductMasters(params: {
         product: search
           ? {
               OR: [
-                { name: { contains: search, mode: "insensitive" } },
+                { name: { contains: search } },
                 { janCode: { contains: search } },
               ],
             }
@@ -183,7 +201,7 @@ export async function listProductMasters(params: {
       name: product.name,
       spec: product.spec,
       janCode: product.janCode,
-      alertDays: product.alertDays,
+      alertDays: readAlertDays(product.alertDays),
       earliestExpiry: earliestLot ? formatDateLabel(earliestLot.expiryDate) : null,
       totalQuantity,
       activeLotCount: lots.length,
@@ -753,7 +771,7 @@ export async function resolveUnmatchedSale(params: {
           name: params.productName,
           spec: params.spec,
           janCode,
-          alertDays: params.defaultAlertDays ?? [30, 7, 0],
+          alertDays: (params.defaultAlertDays ?? [30, 7, 0]) as Prisma.InputJsonValue,
         },
         select: {
           id: true,

@@ -13,5 +13,12 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "otc-checker"
     }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "otc-checker-db",
+      "database_id": "04226dc5-9e7a-4cfd-9191-648e82aa6e90"
+    }
   ]
 }

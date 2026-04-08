@@ -1,4 +1,5 @@
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
 import { buildSettingsUpdate, getSettings } from "@/lib/settings";
@@ -33,6 +34,7 @@ export async function PUT(request: Request) {
       create: {
         id: "singleton",
         ...normalizedData,
+        defaultAlertDays: normalizedData.defaultAlertDays as Prisma.InputJsonValue,
       },
       update: buildSettingsUpdate(normalizedData),
     });

@@ -1,25 +1,45 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaD1 } from "@prisma/adapter-d1";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL;
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
 
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is not configured");
-  }
-
-  const adapter = new PrismaPg({
-    connectionString,
-    // Cloudflare Workers should not reuse pooled connections across requests.
-    maxUses: 1,
-  });
-
+function createNodePrismaClient() {
   return new PrismaClient({
-    adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 }
 
+function createPrismaClient() {
+  try {
+    const { env } = getCloudflareContext();
+    const cloudflareEnv = env as {
+      DB?: ConstructorParameters<typeof PrismaD1>[0];
+    };
+
+    if (cloudflareEnv.DB) {
+      const adapter = new PrismaD1(cloudflareEnv.DB);
+
+      return new PrismaClient({
+        adapter,
+        log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+      });
+    }
+  } catch {
+    // Fall through to local Node.js / Next.js development using sqlite DATABASE_URL.
+  }
+
+  return globalForPrisma.prisma ?? createNodePrismaClient();
+}
+
 export function getPrisma() {
-  return createPrismaClient();
+  const prisma = createPrismaClient();
+
+  if (process.env.NODE_ENV !== "production" && !globalForPrisma.prisma) {
+    globalForPrisma.prisma = prisma;
+  }
+
+  return prisma;
 }

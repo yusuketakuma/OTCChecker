@@ -1,9 +1,22 @@
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { fail, ok } from "@/lib/api";
 import { normalizeAlertDays } from "@/lib/date";
 import { getPrisma } from "@/lib/prisma";
+
+function readAlertDays(value: Prisma.JsonValue | null | undefined) {
+  if (!Array.isArray(value)) {
+    return [30, 7, 0];
+  }
+
+  return normalizeAlertDays(
+    value
+      .map((item) => (typeof item === "number" ? item : Number(item)))
+      .filter((item) => Number.isInteger(item) && item >= 0),
+  );
+}
 
 const productUpdateSchema = z.object({
   name: z.string().min(1).max(120),
@@ -51,7 +64,10 @@ export async function GET(
       return fail(404, "PRODUCT_NOT_FOUND", "商品が見つかりません");
     }
 
-    return ok(product);
+    return ok({
+      ...product,
+      alertDays: readAlertDays(product.alertDays),
+    });
   } catch (error) {
     return fail(500, "PRODUCT_FETCH_FAILED", "商品詳細の取得に失敗しました", error);
   }
@@ -76,7 +92,7 @@ export async function PUT(
       data: {
         name: parsed.data.name,
         spec: parsed.data.spec,
-        alertDays: normalizeAlertDays(parsed.data.alertDays),
+        alertDays: normalizeAlertDays(parsed.data.alertDays) as Prisma.InputJsonValue,
       },
     });
 

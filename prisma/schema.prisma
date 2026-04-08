@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -38,11 +38,11 @@ enum UnmatchedReason {
 }
 
 model Product {
-  id        String         @id @default(uuid()) @db.Uuid
+  id        String         @id @default(uuid())
   name      String
   spec      String
   janCode   String         @unique
-  alertDays Int[]          @default([30, 7, 0])
+  alertDays Json
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   lots      InventoryLot[]
@@ -51,10 +51,10 @@ model Product {
 }
 
 model InventoryLot {
-  id                String             @id @default(uuid()) @db.Uuid
-  productId         String             @db.Uuid
+  id                String             @id @default(uuid())
+  productId         String
   product           Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
-  expiryDate        DateTime           @db.Date
+  expiryDate        DateTime
   quantity          Int
   initialQuantity   Int
   status            InventoryLotStatus @default(ACTIVE)
@@ -75,14 +75,14 @@ model InventoryLot {
 }
 
 model SalesRecord {
-  id               String       @id @default(uuid()) @db.Uuid
-  lotId            String       @db.Uuid
+  id               String       @id @default(uuid())
+  lotId            String
   lot              InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
   quantity         Int
   source           SalesSource
   posTransactionId String?
-  transactionDate  DateTime?    @db.Date
-  importBatchId    String?      @db.Uuid
+  transactionDate  DateTime?
+  importBatchId    String?
   importBatch      ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   sourceRowNo      Int?
   sourceRowKey     String?
@@ -94,8 +94,8 @@ model SalesRecord {
 }
 
 model DisposalRecord {
-  id        String       @id @default(uuid()) @db.Uuid
-  lotId     String       @db.Uuid
+  id        String       @id @default(uuid())
+  lotId     String
   lot       InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
   quantity  Int
   reason    String
@@ -105,12 +105,12 @@ model DisposalRecord {
 }
 
 model AlertLog {
-  id            String       @id @default(uuid()) @db.Uuid
-  lotId         String       @db.Uuid
+  id            String       @id @default(uuid())
+  lotId         String
   lot           InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
   alertKind     AlertKind
   thresholdDays Int?
-  businessDate  DateTime?    @db.Date
+  businessDate  DateTime?
   sentAt        DateTime     @default(now())
 
   @@unique([lotId, thresholdDays, alertKind], name: "alert_threshold_unique")
@@ -119,7 +119,7 @@ model AlertLog {
 }
 
 model UnmatchedSale {
-  id                String          @id @default(uuid()) @db.Uuid
+  id                String          @id @default(uuid())
   rawProductName    String
   janCode           String?
   quantity          Int
@@ -128,8 +128,8 @@ model UnmatchedSale {
   remainingQuantity Int
   reason            UnmatchedReason
   importedAt        DateTime        @default(now())
-  transactionDate   DateTime?       @db.Date
-  importBatchId     String?         @db.Uuid
+  transactionDate   DateTime?
+  importBatchId     String?
   importBatch       ImportBatch?    @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   sourceRowNo       Int?
   rawRow            Json?
@@ -141,7 +141,7 @@ model UnmatchedSale {
 }
 
 model ImportBatch {
-  id             String            @id @default(uuid()) @db.Uuid
+  id             String            @id @default(uuid())
   fileName       String
   fileHash       String            @unique
   status         ImportBatchStatus
@@ -161,11 +161,11 @@ model ImportBatch {
 }
 
 model ReceiptRecord {
-  id            String       @id @default(uuid()) @db.Uuid
-  lotId         String       @db.Uuid
+  id            String       @id @default(uuid())
+  lotId         String
   lot           InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
   quantity      Int
-  importBatchId String?      @db.Uuid
+  importBatchId String?
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   createdAt     DateTime     @default(now())
 
@@ -173,8 +173,8 @@ model ReceiptRecord {
 }
 
 model AdjustmentRecord {
-  id        String       @id @default(uuid()) @db.Uuid
-  lotId     String       @db.Uuid
+  id        String       @id @default(uuid())
+  lotId     String
   lot       InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
   beforeQty Int
   afterQty  Int
@@ -187,7 +187,7 @@ model AdjustmentRecord {
 
 model AppSettings {
   id               String   @id @default("singleton")
-  defaultAlertDays Int[]    @default([30, 7, 0])
+  defaultAlertDays Json
   timezone         String   @default("Asia/Tokyo")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
