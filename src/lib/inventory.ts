@@ -132,7 +132,7 @@ function matchesInventoryBucket(bucket: ActiveInventoryBucket, filter = "all") {
   }
 
   if (filter === "7d") {
-    return bucket === "within7";
+    return bucket === "today" || bucket === "within7";
   }
 
   if (filter === "30d") {
@@ -315,7 +315,6 @@ export async function getDashboardSummary() {
 
   const summary = {
     expiredCount: 0,
-    todayCount: 0,
     within7Count: 0,
     within30Count: 0,
     unmatchedCount,
@@ -338,7 +337,7 @@ export async function getDashboardSummary() {
     if (bucket === "expired") {
       summary.expiredCount += 1;
     } else if (bucket === "today") {
-      summary.todayCount += 1;
+      summary.within7Count += 1;
     } else if (bucket === "within7") {
       summary.within7Count += 1;
     } else if (bucket === "within30") {
