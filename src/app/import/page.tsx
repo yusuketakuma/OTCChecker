@@ -90,6 +90,63 @@ const receiptExpiryPresets = [
 
 const quantityPresets = [1, 3, 5, 10] as const;
 
+type RowValidation = {
+  canMarkResolved: boolean;
+  canReceiveAndApply: boolean;
+  missingNote: boolean;
+  missingExpiry: boolean;
+  invalidQuantity: boolean;
+  missingProductName: boolean;
+  missingSpec: boolean;
+};
+
+function validateUnmatchedRow(
+  row: UnmatchedRow,
+  note: string | undefined,
+  expiryDate: string | undefined,
+  receiptQuantityRaw: string | undefined,
+  productName: string | undefined,
+  spec: string | undefined,
+): RowValidation {
+  const trimmedNote = note?.trim();
+  const trimmedExpiry = expiryDate?.trim();
+  const parsedQty = parsePositiveIntegerInput(receiptQuantityRaw ?? "");
+  const trimmedProductName = productName?.trim();
+  const trimmedSpec = spec?.trim();
+
+  const missingNote = !trimmedNote;
+  const missingExpiry = !trimmedExpiry;
+  const invalidQuantity = parsedQty === null;
+  const needsProduct = !row.matchedProduct;
+  const missingProductName = needsProduct && !trimmedProductName;
+  const missingSpec = needsProduct && !trimmedSpec;
+
+  return {
+    canMarkResolved: !missingNote,
+    canReceiveAndApply:
+      !missingNote && !missingExpiry && !invalidQuantity && !missingProductName && !missingSpec,
+    missingNote,
+    missingExpiry,
+    invalidQuantity,
+    missingProductName,
+    missingSpec,
+  };
+}
+
+function ValidationHint({ show, children }: { show: boolean; children: React.ReactNode }) {
+  if (!show) {
+    return null;
+  }
+
+  return <p className="text-xs text-[var(--color-danger)]">{children}</p>;
+}
+
+function invalidFieldClass(invalid: boolean) {
+  return invalid
+    ? "border-[var(--color-danger)] focus:border-[var(--color-danger)] focus:ring-[var(--color-danger)]/20"
+    : undefined;
+}
+
 function readStoredReceiptDefaults() {
   if (typeof window === "undefined") {
     return { expiryDate: "", quantity: 1 };
@@ -171,9 +228,29 @@ export default function ImportPage() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [unmatchedQuery, setUnmatchedQuery] = useState("");
   const [unmatchedReasonFilter, setUnmatchedReasonFilter] = useState<(typeof unmatchedReasonOptions)[number]["key"]>("all");
+  const [bulkResolutionNote, setBulkResolutionNote] = useState("確認済み");
+  const [bulkExpiryDate, setBulkExpiryDate] = useState("");
+  const [bulkReceiptQuantity, setBulkReceiptQuantity] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const previewSummary = preview ? summarizePreview(preview.rows) : null;
+  const rowValidations = useMemo(() => {
+    const map: Record<string, RowValidation> = {};
+
+    for (const row of unmatched) {
+      map[row.id] = validateUnmatchedRow(
+        row,
+        resolutionDrafts[row.id],
+        expiryDateDrafts[row.id],
+        receiptQuantityDrafts[row.id],
+        productNameDrafts[row.id],
+        specDrafts[row.id],
+      );
+    }
+
+    return map;
+  }, [unmatched, resolutionDrafts, expiryDateDrafts, receiptQuantityDrafts, productNameDrafts, specDrafts]);
+
   const filteredUnmatched = useMemo(() => {
     const query = unmatchedQuery.trim().toLowerCase();
 
@@ -203,6 +280,8 @@ export default function ImportPage() {
     const storedDefaults = readStoredReceiptDefaults();
 
     setUnmatched(rows);
+    setBulkExpiryDate(storedDefaults.expiryDate);
+    setBulkReceiptQuantity(String(storedDefaults.quantity));
     setResolutionDrafts(
       Object.fromEntries(rows.map((row) => [row.id, row.resolutionNote ?? "確認済み"])),
     );
@@ -293,6 +372,40 @@ export default function ImportPage() {
     } finally {
       setExecuting(false);
     }
+  }
+
+  function applyBulkDrafts() {
+    if (!filteredUnmatched.length) {
+      setError("一括適用できる未割当がありません。");
+      setMessage("");
+      return;
+    }
+
+    const nextNote = bulkResolutionNote;
+    const nextExpiryDate = bulkExpiryDate;
+    const parsedBulkQuantity = parsePositiveIntegerInput(bulkReceiptQuantity);
+
+    setResolutionDrafts((current) => ({
+      ...current,
+      ...Object.fromEntries(filteredUnmatched.map((row) => [row.id, nextNote])),
+    }));
+
+    if (nextExpiryDate) {
+      setExpiryDateDrafts((current) => ({
+        ...current,
+        ...Object.fromEntries(filteredUnmatched.map((row) => [row.id, nextExpiryDate])),
+      }));
+    }
+
+    if (parsedBulkQuantity !== null) {
+      setReceiptQuantityDrafts((current) => ({
+        ...current,
+        ...Object.fromEntries(filteredUnmatched.map((row) => [row.id, String(parsedBulkQuantity)])),
+      }));
+    }
+
+    setMessage(`表示中の未割当 ${filteredUnmatched.length} 件に入力内容を反映しました。`);
+    setError("");
   }
 
   async function resolveUnmatched(row: UnmatchedRow) {
@@ -524,187 +637,288 @@ export default function ImportPage() {
                   </button>
                 ))}
               </div>
+              <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                <FieldLabel>表示中の未割当に一括入力</FieldLabel>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Input
+                      disabled={!isOnline}
+                      value={bulkResolutionNote}
+                      onChange={(event) => setBulkResolutionNote(event.target.value)}
+                      placeholder="解決メモ"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Input
+                      disabled={!isOnline}
+                      type="date"
+                      value={bulkExpiryDate}
+                      onChange={(event) => setBulkExpiryDate(event.target.value)}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {receiptExpiryPresets.map((preset) => (
+                        <button
+                          key={`bulk-${preset.label}`}
+                          type="button"
+                          disabled={!isOnline}
+                          className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                          onClick={() => setBulkExpiryDate(addDaysToDateKey(todayJstKey(), preset.days))}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Input
+                      disabled={!isOnline}
+                      {...positiveIntegerInputProps}
+                      enterKeyHint="done"
+                      value={bulkReceiptQuantity}
+                      onChange={(event) => setBulkReceiptQuantity(event.target.value)}
+                      placeholder="入荷数量"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {quantityPresets.map((preset) => (
+                        <button
+                          key={`bulk-qty-${preset}`}
+                          type="button"
+                          disabled={!isOnline}
+                          className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                          onClick={() => setBulkReceiptQuantity(String(preset))}
+                        >
+                          {preset}個
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                  <p>検索や理由フィルタで表示中の行だけに反映します。</p>
+                  <Button
+                    disabled={!isOnline || !filteredUnmatched.length}
+                    variant="secondary"
+                    onClick={applyBulkDrafts}
+                  >
+                    表示中に一括入力
+                  </Button>
+                </div>
+              </div>
             </Card>
             {!filteredUnmatched.length ? (
               <EmptyState title="条件に合う未割当がありません" description="検索語やフィルタを変更してください。" />
             ) : (
               <div className="space-y-3">
-                {filteredUnmatched.map((row) => (
-                  <Card className="space-y-3" key={row.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-sm">{row.rawProductName || "名称なし"}</CardTitle>
-                    <CardDescription>
-                      JAN {row.janCode ?? "-"} / 行 {row.sourceRowNo ?? "-"} / 取引日 {row.transactionDate ?? "-"}
-                    </CardDescription>
-                  </div>
-                  <Badge tone={row.reason === "NO_PRODUCT" ? "warning" : "neutral"}>{row.reason}</Badge>
-                </div>
-                <div className="grid gap-2 text-sm text-slate-600 grid-cols-1 sm:grid-cols-3">
-                  <p>要求数: {row.requestedQuantity}</p>
-                  <p>適用数: {row.appliedQuantity}</p>
-                  <p>残数: {row.remainingQuantity}</p>
-                </div>
-                {row.matchedProduct ? (
-                  <div className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900">
-                    <p className="font-medium">既存商品候補</p>
-                    <p className="mt-1">
-                      {row.matchedProduct.name} / {row.matchedProduct.spec}
-                    </p>
-                  </div>
-                ) : null}
-                {row.reason !== "DUPLICATE_ROW" ? (
-                  <div className="space-y-3">
-                    {!row.matchedProduct ? (
-                      <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
-                        <FieldLabel>商品マスタ作成</FieldLabel>
-                        <Input
-                          disabled={!isOnline}
-                          value={productNameDrafts[row.id] ?? ""}
+                {filteredUnmatched.map((row) => {
+                  const validation = rowValidations[row.id];
+                  const isResolving = resolvingId === row.id;
+
+                  return (
+                    <Card className="space-y-3" key={row.id}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <CardTitle className="text-sm">{row.rawProductName || "名称なし"}</CardTitle>
+                          <CardDescription>
+                            JAN {row.janCode ?? "-"} / 行 {row.sourceRowNo ?? "-"} / 取引日 {row.transactionDate ?? "-"}
+                          </CardDescription>
+                        </div>
+                        <Badge tone={row.reason === "NO_PRODUCT" ? "warning" : "neutral"}>{row.reason}</Badge>
+                      </div>
+                      <div className="grid gap-2 text-sm text-slate-600 grid-cols-1 sm:grid-cols-3">
+                        <p>要求数: {row.requestedQuantity}</p>
+                        <p>適用数: {row.appliedQuantity}</p>
+                        <p>残数: {row.remainingQuantity}</p>
+                      </div>
+                      {row.matchedProduct ? (
+                        <div className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900">
+                          <p className="font-medium">既存商品候補</p>
+                          <p className="mt-1">
+                            {row.matchedProduct.name} / {row.matchedProduct.spec}
+                          </p>
+                        </div>
+                      ) : null}
+                      {row.reason !== "DUPLICATE_ROW" ? (
+                        <div className="space-y-3">
+                          {!row.matchedProduct ? (
+                            <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                              <FieldLabel>商品マスタ作成</FieldLabel>
+                              <div className="space-y-1">
+                                <Input
+                                  aria-invalid={validation?.missingProductName || undefined}
+                                  className={invalidFieldClass(validation?.missingProductName ?? false)}
+                                  disabled={!isOnline}
+                                  value={productNameDrafts[row.id] ?? ""}
+                                  onChange={(event) =>
+                                    setProductNameDrafts((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="商品名"
+                                />
+                                <ValidationHint show={validation?.missingProductName ?? false}>
+                                  商品名を入力してください
+                                </ValidationHint>
+                              </div>
+                              <div className="space-y-1">
+                                <Input
+                                  aria-invalid={validation?.missingSpec || undefined}
+                                  className={invalidFieldClass(validation?.missingSpec ?? false)}
+                                  disabled={!isOnline}
+                                  value={specDrafts[row.id] ?? ""}
+                                  onChange={(event) =>
+                                    setSpecDrafts((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="規格"
+                                />
+                                <ValidationHint show={validation?.missingSpec ?? false}>
+                                  規格を入力してください
+                                </ValidationHint>
+                              </div>
+                            </div>
+                          ) : null}
+                          <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                            <FieldLabel>不足分を入荷して反映</FieldLabel>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-2">
+                                <FieldLabel>期限日</FieldLabel>
+                                <Input
+                                  aria-invalid={validation?.missingExpiry || undefined}
+                                  className={invalidFieldClass(validation?.missingExpiry ?? false)}
+                                  disabled={!isOnline}
+                                  type="date"
+                                  value={expiryDateDrafts[row.id] ?? ""}
+                                  onChange={(event) =>
+                                    setExpiryDateDrafts((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value,
+                                    }))
+                                  }
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  {receiptExpiryPresets.map((preset) => (
+                                    <button
+                                      key={`${row.id}-${preset.label}`}
+                                      type="button"
+                                      disabled={!isOnline}
+                                      className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                                      onClick={() =>
+                                        setExpiryDateDrafts((current) => ({
+                                          ...current,
+                                          [row.id]: addDaysToDateKey(todayJstKey(), preset.days),
+                                        }))
+                                      }
+                                    >
+                                      {preset.label}
+                                    </button>
+                                  ))}
+                                </div>
+                                <ValidationHint show={validation?.missingExpiry ?? false}>
+                                  期限日を入力してください
+                                </ValidationHint>
+                              </div>
+                              <div className="space-y-2">
+                                <FieldLabel>入荷数量</FieldLabel>
+                                <Input
+                                  aria-invalid={validation?.invalidQuantity || undefined}
+                                  className={invalidFieldClass(validation?.invalidQuantity ?? false)}
+                                  disabled={!isOnline}
+                                  {...positiveIntegerInputProps}
+                                  enterKeyHint="done"
+                                  value={receiptQuantityDrafts[row.id] ?? String(row.remainingQuantity)}
+                                  onChange={(event) =>
+                                    setReceiptQuantityDrafts((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value,
+                                    }))
+                                  }
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  {quantityPresets.map((preset) => (
+                                    <button
+                                      key={`${row.id}-qty-${preset}`}
+                                      type="button"
+                                      disabled={!isOnline}
+                                      className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                                      onClick={() =>
+                                        setReceiptQuantityDrafts((current) => ({
+                                          ...current,
+                                          [row.id]: String(preset),
+                                        }))
+                                      }
+                                    >
+                                      {preset}個
+                                    </button>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    disabled={!isOnline}
+                                    className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                                    onClick={() =>
+                                      setReceiptQuantityDrafts((current) => ({
+                                        ...current,
+                                        [row.id]: String(row.remainingQuantity),
+                                      }))
+                                    }
+                                  >
+                                    残数をセット
+                                  </button>
+                                </div>
+                                <ValidationHint show={validation?.invalidQuantity ?? false}>
+                                  入荷数量は1以上で入力してください
+                                </ValidationHint>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="space-y-2">
+                        <FieldLabel>解決メモ</FieldLabel>
+                        <Textarea
+                          aria-invalid={validation?.missingNote || undefined}
+                          className={invalidFieldClass(validation?.missingNote ?? false)}
+                          value={resolutionDrafts[row.id] ?? ""}
                           onChange={(event) =>
-                            setProductNameDrafts((current) => ({
+                            setResolutionDrafts((current) => ({
                               ...current,
                               [row.id]: event.target.value,
                             }))
                           }
-                          placeholder="商品名"
+                          placeholder="解決メモを入力"
                         />
-                        <Input
-                          disabled={!isOnline}
-                          value={specDrafts[row.id] ?? ""}
-                          onChange={(event) =>
-                            setSpecDrafts((current) => ({
-                              ...current,
-                              [row.id]: event.target.value,
-                            }))
-                          }
-                          placeholder="規格"
-                        />
+                        <ValidationHint show={validation?.missingNote ?? false}>
+                          解決メモを入力してください
+                        </ValidationHint>
                       </div>
-                    ) : null}
-                    <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
-                      <FieldLabel>不足分を入荷して反映</FieldLabel>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <FieldLabel>期限日</FieldLabel>
-                          <Input
-                            disabled={!isOnline}
-                            type="date"
-                            value={expiryDateDrafts[row.id] ?? ""}
-                            onChange={(event) =>
-                              setExpiryDateDrafts((current) => ({
-                                ...current,
-                                [row.id]: event.target.value,
-                              }))
-                            }
-                          />
-                          <div className="flex flex-wrap gap-2">
-                            {receiptExpiryPresets.map((preset) => (
-                              <button
-                                key={`${row.id}-${preset.label}`}
-                                type="button"
-                                disabled={!isOnline}
-                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
-                                onClick={() =>
-                                  setExpiryDateDrafts((current) => ({
-                                    ...current,
-                                    [row.id]: addDaysToDateKey(todayJstKey(), preset.days),
-                                  }))
-                                }
-                              >
-                                {preset.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <FieldLabel>入荷数量</FieldLabel>
-                          <Input
-                            disabled={!isOnline}
-                            {...positiveIntegerInputProps}
-                            enterKeyHint="done"
-                            value={receiptQuantityDrafts[row.id] ?? String(row.remainingQuantity)}
-                            onChange={(event) =>
-                              setReceiptQuantityDrafts((current) => ({
-                                ...current,
-                                [row.id]: event.target.value,
-                              }))
-                            }
-                          />
-                          <div className="flex flex-wrap gap-2">
-                            {quantityPresets.map((preset) => (
-                              <button
-                                key={`${row.id}-qty-${preset}`}
-                                type="button"
-                                disabled={!isOnline}
-                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
-                                onClick={() =>
-                                  setReceiptQuantityDrafts((current) => ({
-                                    ...current,
-                                    [row.id]: String(preset),
-                                  }))
-                                }
-                              >
-                                {preset}個
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              disabled={!isOnline}
-                              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
-                              onClick={() =>
-                                setReceiptQuantityDrafts((current) => ({
-                                  ...current,
-                                  [row.id]: String(row.remainingQuantity),
-                                }))
-                              }
-                            >
-                              残数をセット
-                            </button>
-                          </div>
-                        </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {row.reason !== "DUPLICATE_ROW" ? (
+                          <Button
+                            className="w-full"
+                            disabled={!isOnline || isResolving || !(validation?.canReceiveAndApply ?? false)}
+                            onClick={() => receiveAndApply(row)}
+                          >
+                            {isResolving
+                              ? "反映中..."
+                              : row.matchedProduct
+                                ? "入荷して売上反映"
+                                : "商品作成して売上反映"}
+                          </Button>
+                        ) : null}
+                        <Button
+                          className="w-full"
+                          disabled={!isOnline || isResolving || !(validation?.canMarkResolved ?? false)}
+                          variant="secondary"
+                          onClick={() => resolveUnmatched(row)}
+                        >
+                          {isResolving ? "更新中..." : "メモのみで解決"}
+                        </Button>
                       </div>
-                    </div>
-                  </div>
-                ) : null}
-                <div className="space-y-2">
-                  <FieldLabel>解決メモ</FieldLabel>
-                  <Textarea
-                    value={resolutionDrafts[row.id] ?? ""}
-                    onChange={(event) =>
-                      setResolutionDrafts((current) => ({
-                        ...current,
-                        [row.id]: event.target.value,
-                      }))
-                    }
-                    placeholder="解決メモを入力"
-                  />
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {row.reason !== "DUPLICATE_ROW" ? (
-                    <Button
-                      className="w-full"
-                      disabled={!isOnline || resolvingId === row.id}
-                      onClick={() => receiveAndApply(row)}
-                    >
-                      {resolvingId === row.id
-                        ? "反映中..."
-                        : row.matchedProduct
-                          ? "入荷して売上反映"
-                          : "商品作成して売上反映"}
-                    </Button>
-                  ) : null}
-                  <Button
-                    className="w-full"
-                    disabled={!isOnline || resolvingId === row.id}
-                    variant="secondary"
-                    onClick={() => resolveUnmatched(row)}
-                  >
-                    {resolvingId === row.id ? "更新中..." : "メモのみで解決"}
-                  </Button>
-                </div>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </>
