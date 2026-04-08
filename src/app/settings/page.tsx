@@ -33,6 +33,9 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [isInstalled, setIsInstalled] = useState(false);
   const alertDaysInput = parseAlertDaysInput(alertDays);
+  const savedAlertDaysText = settings?.defaultAlertDays.join(",") ?? "";
+  const hasUnsavedChanges =
+    Boolean(settings) && alertDaysInput.normalizedText !== savedAlertDaysText;
 
   useEffect(() => {
     fetchJson<Settings>("/api/settings")
@@ -77,6 +80,17 @@ export default function SettingsPage() {
 
     setAlertDays(next.length ? next.sort((a, b) => b - a).join(",") : "");
     setMessage("");
+    setError("");
+  }
+
+  function resetAlertDays() {
+    if (!settings) {
+      return;
+    }
+
+    setAlertDays(settings.defaultAlertDays.join(","));
+    setMessage("");
+    setError("");
   }
 
   async function save() {
@@ -114,7 +128,15 @@ export default function SettingsPage() {
       <Card className="space-y-4">
         <CardTitle>既定アラート閾値</CardTitle>
         <CardDescription>新規 SKU にだけ適用されます。カンマ区切りで入力してください。</CardDescription>
-        <Input disabled={!isOnline} value={alertDays} onChange={(event) => setAlertDays(event.target.value)} />
+        <Input
+          disabled={!isOnline}
+          value={alertDays}
+          onChange={(event) => {
+            setAlertDays(event.target.value);
+            setMessage("");
+            setError("");
+          }}
+        />
         <div className="flex flex-wrap gap-2">
           {alertDayPresets.map((day) => {
             const selected = alertDaysInput.values.includes(day);
@@ -136,12 +158,20 @@ export default function SettingsPage() {
             );
           })}
         </div>
-        <p className={`text-sm ${alertDaysInput.error ? "text-[var(--color-danger)]" : "text-slate-500"}`}>
-          {alertDaysInput.error || `保存時は ${alertDaysInput.normalizedText} に整えて反映します。全角カンマも使えます。`}
+        <p className={`text-sm ${alertDaysInput.error ? "text-[var(--color-danger)]" : hasUnsavedChanges ? "text-amber-700" : "text-slate-500"}`}>
+          {alertDaysInput.error
+            || (hasUnsavedChanges
+              ? `未保存の変更があります。保存時は ${alertDaysInput.normalizedText} に整えて反映します。`
+              : `保存済み設定です。保存時は ${alertDaysInput.normalizedText} に整えて反映します。全角カンマも使えます。`)}
         </p>
-        <Button className="w-full" disabled={!isOnline || Boolean(alertDaysInput.error)} onClick={save}>
-          設定を保存
-        </Button>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button className="w-full" disabled={!isOnline || Boolean(alertDaysInput.error) || !hasUnsavedChanges} onClick={save}>
+            設定を保存
+          </Button>
+          <Button className="w-full" variant="secondary" disabled={!isOnline || !hasUnsavedChanges} onClick={resetAlertDays}>
+            変更を戻す
+          </Button>
+        </div>
       </Card>
 
       <Card className="space-y-4">
