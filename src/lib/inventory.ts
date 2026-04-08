@@ -21,6 +21,7 @@ export type InventoryProductSummary = {
   name: string;
   spec: string;
   janCode: string;
+  earliestLotId: string | null;
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
@@ -221,6 +222,7 @@ export async function listInventoryProducts(params: {
         name: firstLot.product.name,
         spec: firstLot.product.spec,
         janCode: firstLot.product.janCode,
+        earliestLotId: firstLot.id,
         earliestExpiry: summary.earliestExpiry,
         totalQuantity: summary.totalQuantity,
         activeLotCount: summary.activeLotCount,

@@ -18,6 +18,7 @@ type InventoryRow = {
   name: string;
   spec: string;
   janCode: string;
+  earliestLotId: string | null;
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
@@ -225,13 +226,23 @@ function InventoryPageContent({
                 >
                   手動入荷
                 </Link>
-                <Link
-                  aria-label={`${item.name}の売上登録を開く`}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
-                  href={`/inventory/${item.productId}#manual-sale`}
-                >
-                  売上登録
-                </Link>
+                {item.bucket === "expired" || item.bucket === "today" ? (
+                  <Link
+                    aria-label={`${item.name}の廃棄登録を開く`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 transition active:scale-[0.99]"
+                    href={item.earliestLotId ? `/inventory/${item.productId}#lot-${item.earliestLotId}` : `/inventory/${item.productId}`}
+                  >
+                    廃棄登録
+                  </Link>
+                ) : (
+                  <Link
+                    aria-label={`${item.name}の売上登録を開く`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                    href={`/inventory/${item.productId}#manual-sale`}
+                  >
+                    売上登録
+                  </Link>
+                )}
               </div>
             </Card>
           ))}
