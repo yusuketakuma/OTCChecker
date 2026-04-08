@@ -42,23 +42,49 @@ type ProductCreateResult = {
   action: "created" | "created-with-lot" | "existing" | "received-on-existing";
 };
 
-function buildProductSearchParams(query: string) {
+const productFilters = [
+  { key: "all", label: "全件" },
+  { key: "attention", label: "期限注意" },
+  { key: "stocked", label: "在庫あり" },
+  { key: "outOfStock", label: "在庫なし" },
+] as const;
+
+type ProductFilterKey = (typeof productFilters)[number]["key"];
+
+function normalizeProductFilter(value: string | null): ProductFilterKey {
+  return productFilters.some((filter) => filter.key === value)
+    ? (value as ProductFilterKey)
+    : "all";
+}
+
+function buildProductSearchParams(query: string, filter: ProductFilterKey) {
   const params = new URLSearchParams();
 
   if (query.trim()) {
     params.set("q", query.trim());
   }
 
+  if (filter !== "all") {
+    params.set("filter", filter);
+  }
+
   return params;
 }
 
-function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
+function ProductsPageContent({
+  initialQuery,
+  initialFilter,
+}: {
+  initialQuery: string;
+  initialFilter: ProductFilterKey;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isOnline = useOnlineStatus();
   const [items, setItems] = useState<ProductMasterSummary[]>([]);
   const [query, setQuery] = useState(initialQuery);
+  const [filter, setFilter] = useState<ProductFilterKey>(initialFilter);
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
   const [janCode, setJanCode] = useState("");
@@ -73,9 +99,9 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
   const initialLotQuantity = parsePositiveIntegerInput(quantity);
   const janCodeValid = /^\d{8,14}$/.test(janCode);
 
-  async function loadProducts(search: string) {
+  async function loadProducts(search: string, nextFilter: ProductFilterKey) {
     const data = await fetchJson<ProductMasterSummary[]>(
-      `/api/products?mode=master&q=${encodeURIComponent(search)}`,
+      `/api/products?mode=master&q=${encodeURIComponent(search)}&filter=${nextFilter}`,
     );
     setItems(data);
   }
@@ -84,7 +110,7 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
     const controller = new AbortController();
 
     fetchJson<ProductMasterSummary[]>(
-      `/api/products?mode=master&q=${encodeURIComponent(deferredQuery)}`,
+      `/api/products?mode=master&q=${encodeURIComponent(deferredQuery)}&filter=${filter}`,
       { signal: controller.signal },
     )
       .then((data) => {
@@ -98,11 +124,14 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
       });
 
     return () => controller.abort();
-  }, [deferredQuery]);
+  }, [deferredQuery, filter]);
 
   useEffect(() => {
-    const nextParams = buildProductSearchParams(query);
-    const currentParams = buildProductSearchParams(searchParams.get("q") ?? "");
+    const nextParams = buildProductSearchParams(query, filter);
+    const currentParams = buildProductSearchParams(
+      searchParams.get("q") ?? "",
+      normalizeProductFilter(searchParams.get("filter")),
+    );
 
     if (nextParams.toString() === currentParams.toString()) {
       return;
@@ -113,7 +142,7 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
     startTransition(() => {
       router.replace(nextUrl, { scroll: false });
     });
-  }, [pathname, query, router, searchParams]);
+  }, [filter, pathname, query, router, searchParams]);
 
   async function createProduct() {
     if (expiryDate && initialLotQuantity === null) {
@@ -145,6 +174,7 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
       setExpiryDate("");
       setQuantity("1");
       setQuery("");
+      setFilter("all");
       setMessage(
         result.action === "created-with-lot"
           ? "商品と初回ロットを登録しました。"
@@ -152,9 +182,9 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
             ? "既存商品へ初回在庫を追加しました。"
             : result.action === "existing"
               ? "同じJANの商品があるため、既存商品を表示しました。"
-              : "商品マスタを登録しました。",
+            : "商品マスタを登録しました。",
       );
-      await loadProducts("");
+      await loadProducts("", "all");
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
@@ -177,7 +207,7 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
       });
       setMessage("商品マスタを削除しました。");
       setPendingDeleteProductId(null);
-      await loadProducts(query.trim());
+      await loadProducts(query.trim(), filter);
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
@@ -200,6 +230,23 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        <div className="flex flex-wrap gap-2">
+          {productFilters.map((item) => (
+            <button
+              aria-pressed={filter === item.key}
+              className={`rounded-full px-4 py-2 text-sm font-medium ${
+                filter === item.key
+                  ? "bg-[var(--color-brand)] text-white"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+              key={item.key}
+              onClick={() => setFilter(item.key)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </Card>
 
       <Card className="space-y-4">
@@ -306,108 +353,111 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
             const deleteConfirmOpen = pendingDeleteProductId === item.productId;
 
             return (
-            <Card className="space-y-3" key={item.productId}>
-              <Link
-                className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
-                href={`/inventory/${item.productId}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <CardTitle>{item.name}</CardTitle>
-                    <CardDescription>{item.spec}</CardDescription>
-                  </div>
-                  <Badge
-                    tone={
-                      item.bucket === "expired"
-                        ? "danger"
-                        : item.bucket === "within7"
-                          ? "warning"
-                          : item.bucket === "within30"
-                            ? "info"
-                            : item.bucket === "outOfStock"
-                              ? "neutral"
-                              : "success"
-                    }
-                  >
-                    {item.bucket === "expired"
-                      ? "期限切れ"
-                      : item.bucket === "within7"
-                        ? "7日以内"
-                        : item.bucket === "within30"
-                          ? "30日以内"
-                          : item.bucket === "outOfStock"
-                            ? "在庫なし"
-                            : "正常"}
-                  </Badge>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
-                  <p className="col-span-2">ロット番号: {item.primaryLotId ? formatLotNumber(item.primaryLotId) : "-"}</p>
-                  <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
-                  <p>期限: {item.earliestExpiry ?? "-"}</p>
-                  <p className="col-span-2">JAN: {item.janCode}</p>
-                </div>
-              </Link>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <Card className="space-y-3" key={item.productId}>
                 <Link
-                  aria-label={`${item.name}の入荷登録を開く`}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
-                  href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
-                >
-                  入荷する
-                </Link>
-                <Link
-                  aria-label={`${item.name}の在庫詳細を開く`}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
                   href={`/inventory/${item.productId}`}
                 >
-                  在庫詳細
-                </Link>
-                {item.canDelete ? (
-                  <button
-                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 transition active:scale-[0.99] sm:col-span-2"
-                    disabled={deletingId === item.productId}
-                    onClick={() =>
-                      setPendingDeleteProductId((current) =>
-                        current === item.productId ? null : item.productId,
-                      )
-                    }
-                    type="button"
-                  >
-                    {deletingId === item.productId
-                      ? "削除中..."
-                      : deleteConfirmOpen
-                        ? "削除確認を閉じる"
-                        : "商品を削除"}
-                  </button>
-                ) : null}
-              </div>
-              {deleteConfirmOpen ? (
-                <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-3">
-                  <p className="text-sm text-rose-900">
-                    「{item.name}」を削除します。未入荷の商品だけ削除できます。
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Button
-                      className="w-full"
-                      disabled={deletingId === item.productId}
-                      variant="danger"
-                      onClick={() => void deleteProduct(item)}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <CardTitle>{item.name}</CardTitle>
+                      <CardDescription>{item.spec}</CardDescription>
+                    </div>
+                    <Badge
+                      tone={
+                        item.bucket === "expired"
+                          ? "danger"
+                          : item.bucket === "within7"
+                            ? "warning"
+                            : item.bucket === "within30"
+                              ? "info"
+                              : item.bucket === "outOfStock"
+                                ? "neutral"
+                                : "success"
+                      }
                     >
-                      {deletingId === item.productId ? "削除中..." : "この商品を削除する"}
-                    </Button>
-                    <Button
-                      className="w-full"
-                      disabled={deletingId === item.productId}
-                      variant="secondary"
-                      onClick={() => setPendingDeleteProductId(null)}
-                    >
-                      キャンセル
-                    </Button>
+                      {item.bucket === "expired"
+                        ? "期限切れ"
+                        : item.bucket === "within7"
+                          ? "7日以内"
+                          : item.bucket === "within30"
+                            ? "30日以内"
+                            : item.bucket === "outOfStock"
+                              ? "在庫なし"
+                              : "正常"}
+                    </Badge>
                   </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
+                    <p className="col-span-2">
+                      ロット番号: {item.primaryLotId ? formatLotNumber(item.primaryLotId) : "-"}
+                    </p>
+                    <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
+                    <p>期限: {item.earliestExpiry ?? "-"}</p>
+                    <p className="col-span-2">JAN: {item.janCode}</p>
+                  </div>
+                </Link>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Link
+                    aria-label={`${item.name}の入荷登録を開く`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+                    href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
+                  >
+                    入荷する
+                  </Link>
+                  <Link
+                    aria-label={`${item.name}の在庫詳細を開く`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                    href={`/inventory/${item.productId}`}
+                  >
+                    在庫詳細
+                  </Link>
+                  {item.canDelete ? (
+                    <button
+                      className="inline-flex h-12 w-full items-center justify-center rounded-full bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 transition active:scale-[0.99] sm:col-span-2"
+                      disabled={deletingId === item.productId}
+                      onClick={() =>
+                        setPendingDeleteProductId((current) =>
+                          current === item.productId ? null : item.productId,
+                        )
+                      }
+                      type="button"
+                    >
+                      {deletingId === item.productId
+                        ? "削除中..."
+                        : deleteConfirmOpen
+                          ? "削除確認を閉じる"
+                          : "商品を削除"}
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
-            </Card>
-          );})}
+                {deleteConfirmOpen ? (
+                  <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-3">
+                    <p className="text-sm text-rose-900">
+                      「{item.name}」を削除します。未入荷の商品だけ削除できます。
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        className="w-full"
+                        disabled={deletingId === item.productId}
+                        variant="danger"
+                        onClick={() => void deleteProduct(item)}
+                      >
+                        {deletingId === item.productId ? "削除中..." : "この商品を削除する"}
+                      </Button>
+                      <Button
+                        className="w-full"
+                        disabled={deletingId === item.productId}
+                        variant="secondary"
+                        onClick={() => setPendingDeleteProductId(null)}
+                      >
+                        キャンセル
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
@@ -417,8 +467,15 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
 function ProductsPageShell() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
+  const initialFilter = normalizeProductFilter(searchParams.get("filter"));
 
-  return <ProductsPageContent key={initialQuery} initialQuery={initialQuery} />;
+  return (
+    <ProductsPageContent
+      key={`${initialQuery}:${initialFilter}`}
+      initialFilter={initialFilter}
+      initialQuery={initialQuery}
+    />
+  );
 }
 
 export default function ProductsPage() {

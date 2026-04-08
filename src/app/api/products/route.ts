@@ -14,6 +14,7 @@ export async function GET(request: Request) {
       mode === "master"
         ? await listProductMasters({
             search: searchParams.get("q") ?? "",
+            filter: searchParams.get("filter") ?? "all",
           })
         : await listInventoryProducts({
             search: searchParams.get("q") ?? "",

@@ -19,3 +19,16 @@ test("商品管理の deep link が初回表示でも検索語を反映する", 
   await expect(page.getByText(seededProducts.outOfStock.name)).toBeVisible();
   await expect(page.getByText(seededProducts.safe.name)).not.toBeVisible();
 });
+
+test("商品管理の deep link が在庫なしフィルタも初回表示で反映する", async ({ page }) => {
+  await page.goto("/products?filter=outOfStock");
+  await page.waitForResponse((r) => r.url().includes("/api/products?mode=master") && r.status() === 200);
+
+  await expect(page.getByRole("button", { name: "在庫なし" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByText(seededProducts.outOfStock.name)).toBeVisible();
+  await expect(page.getByText(seededProducts.safe.name)).not.toBeVisible();
+  await expect(page.getByText(seededProducts.detail.name)).not.toBeVisible();
+});

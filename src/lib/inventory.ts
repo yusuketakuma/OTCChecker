@@ -43,6 +43,7 @@ export type ProductMasterSummary = {
 
 type ProductSummaryBucket = ProductMasterSummary["bucket"];
 type ActiveInventoryBucket = InventoryProductSummary["bucket"];
+type ProductMasterFilter = "all" | "attention" | "stocked" | "outOfStock";
 type ActiveLotSeed = {
   id: string;
   productId: string;
@@ -132,6 +133,29 @@ function matchesInventoryBucket(bucket: ActiveInventoryBucket, filter = "all") {
   return true;
 }
 
+function matchesProductMasterFilter(
+  bucket: ProductSummaryBucket,
+  filter: ProductMasterFilter | string = "all",
+) {
+  if (filter === "all") {
+    return true;
+  }
+
+  if (filter === "attention") {
+    return bucket === "expired" || bucket === "within7" || bucket === "within30";
+  }
+
+  if (filter === "stocked") {
+    return bucket !== "outOfStock";
+  }
+
+  if (filter === "outOfStock") {
+    return bucket === "outOfStock";
+  }
+
+  return true;
+}
+
 export async function listInventoryProducts(params: {
   search?: string;
   bucket?: string;
@@ -196,6 +220,7 @@ export async function listInventoryProducts(params: {
 
 export async function listProductMasters(params: {
   search?: string;
+  filter?: ProductMasterFilter | string;
 }) {
   const prisma = await getPrisma();
   const search = params.search?.trim();
@@ -249,24 +274,26 @@ export async function listProductMasters(params: {
     return map;
   }, new Map());
 
-  return products.map<ProductMasterSummary>((product) => {
-    const lots = lotsByProductId.get(product.id) ?? [];
-    const summary = summarizeActiveLots(lots);
+  return products
+    .map<ProductMasterSummary>((product) => {
+      const lots = lotsByProductId.get(product.id) ?? [];
+      const summary = summarizeActiveLots(lots);
 
-    return {
-      productId: product.id,
-      name: product.name,
-      spec: product.spec,
-      janCode: product.janCode,
-      alertDays: readAlertDays(product.alertDays),
-      primaryLotId: summary.primaryLotId,
-      earliestExpiry: summary.earliestExpiry,
-      totalQuantity: summary.totalQuantity,
-      activeLotCount: summary.activeLotCount,
-      canDelete: (allLotCountByProductId.get(product.id) ?? 0) === 0,
-      bucket: summary.bucket,
-    };
-  });
+      return {
+        productId: product.id,
+        name: product.name,
+        spec: product.spec,
+        janCode: product.janCode,
+        alertDays: readAlertDays(product.alertDays),
+        primaryLotId: summary.primaryLotId,
+        earliestExpiry: summary.earliestExpiry,
+        totalQuantity: summary.totalQuantity,
+        activeLotCount: summary.activeLotCount,
+        canDelete: (allLotCountByProductId.get(product.id) ?? 0) === 0,
+        bucket: summary.bucket,
+      };
+    })
+    .filter((product) => matchesProductMasterFilter(product.bucket, params.filter));
 }
 
 export async function getDashboardSummary() {
