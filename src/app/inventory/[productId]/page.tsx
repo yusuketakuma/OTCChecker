@@ -16,6 +16,7 @@ import {
   formatDateLabel,
   formatDateTimeLabel,
   todayJstKey,
+  toDateInputValue,
 } from "@/lib/date";
 import {
   nonNegativeIntegerInputProps,
@@ -349,7 +350,7 @@ export default function InventoryDetailPage() {
       setDisposeReasons(
         Object.fromEntries(detail.lots.map((lot) => [lot.id, "期限近接による廃棄"])),
       );
-      setReceiptExpiryDate(detail.lots[0]?.expiryDate.slice(0, 10) ?? "");
+      setReceiptExpiryDate(toDateInputValue(detail.lots[0]?.expiryDate));
       setReceiptQuantity("1");
       setSaleDate(todayJstKey());
       setSaleQuantity("1");

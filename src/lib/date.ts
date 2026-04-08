@@ -2,14 +2,26 @@ import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 export const JST_TIME_ZONE = "Asia/Tokyo";
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseJstDateLike(date: Date | string) {
+  if (date instanceof Date) {
+    return date;
+  }
+
+  return DATE_ONLY_PATTERN.test(date) ? parseDateOnly(date) : parseISO(date);
+}
 
 export function todayJstKey(now = new Date()) {
   return formatInTimeZone(now, JST_TIME_ZONE, "yyyy-MM-dd");
 }
 
 export function toDateKey(date: Date | string) {
-  const value = typeof date === "string" ? parseISO(date) : date;
-  return formatInTimeZone(value, JST_TIME_ZONE, "yyyy-MM-dd");
+  return formatInTimeZone(parseJstDateLike(date), JST_TIME_ZONE, "yyyy-MM-dd");
+}
+
+export function toDateInputValue(date?: Date | string | null) {
+  return date ? toDateKey(date) : "";
 }
 
 export function parseDateOnly(input: string) {
@@ -21,8 +33,7 @@ export function formatDateLabel(date: Date | string) {
 }
 
 export function formatDateTimeLabel(date: Date | string) {
-  const value = typeof date === "string" ? parseISO(date) : date;
-  return formatInTimeZone(value, JST_TIME_ZONE, "yyyy/MM/dd HH:mm");
+  return formatInTimeZone(parseJstDateLike(date), JST_TIME_ZONE, "yyyy/MM/dd HH:mm");
 }
 
 export function addDaysToDateKey(dateKey: string, days: number) {
