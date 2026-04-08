@@ -212,11 +212,18 @@ function InventoryPageContent({
               </Link>
               <div className="grid gap-2 sm:grid-cols-3">
                 <Link
-                  aria-label={`${item.name}の入荷登録を開く`}
+                  aria-label={`${item.name}のスキャン入荷を開く`}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
                   href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
                 >
-                  入荷する
+                  スキャン入荷
+                </Link>
+                <Link
+                  aria-label={`${item.name}の手動入荷を開く`}
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  href={`/inventory/${item.productId}#manual-receipt`}
+                >
+                  手動入荷
                 </Link>
                 <Link
                   aria-label={`${item.name}の売上登録を開く`}
@@ -224,13 +231,6 @@ function InventoryPageContent({
                   href={`/inventory/${item.productId}#manual-sale`}
                 >
                   売上登録
-                </Link>
-                <Link
-                  aria-label={`${item.name}の詳細を見る`}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
-                  href={`/inventory/${item.productId}`}
-                >
-                  詳細を見る
                 </Link>
               </div>
             </Card>

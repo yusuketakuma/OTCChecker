@@ -209,19 +209,19 @@ export default function DashboardPage() {
                     href={`/scan?jan=${encodeURIComponent(lot.janCode)}&name=${encodeURIComponent(lot.productName)}&spec=${encodeURIComponent(lot.spec)}&quantity=1`}
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
                   >
-                    入荷する
+                    スキャン入荷
+                  </Link>
+                  <Link
+                    href={`/inventory/${lot.productId}#manual-receipt`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  >
+                    手動入荷
                   </Link>
                   <Link
                     href={`/inventory/${lot.productId}#manual-sale`}
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
                   >
                     売上登録
-                  </Link>
-                  <Link
-                    href={`/inventory/${lot.productId}`}
-                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
-                  >
-                    在庫詳細
                   </Link>
                 </div>
               </Card>
