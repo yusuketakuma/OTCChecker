@@ -182,6 +182,14 @@ function ScanPageContent() {
     }
   }
 
+  function clearRecentScans() {
+    setRecentScans([]);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(recentScanStorageKey);
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -532,9 +540,21 @@ function ScanPageContent() {
       </Card>
 
       <Card className="space-y-4">
-        <div className="flex items-center justify-between">
-          <CardTitle>直近読取履歴</CardTitle>
-          <CardDescription>タップで JAN を再入力します。</CardDescription>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle>直近読取履歴</CardTitle>
+            <CardDescription>タップで JAN を再入力します。</CardDescription>
+          </div>
+          {recentScans.length ? (
+            <button
+              type="button"
+              disabled={isSubmitting}
+              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+              onClick={clearRecentScans}
+            >
+              履歴をクリア
+            </button>
+          ) : null}
         </div>
         {!recentScans.length ? (
           <p className="text-sm text-slate-500">まだ読取履歴はありません。</p>
