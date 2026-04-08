@@ -38,7 +38,7 @@ type ProductMasterSummary = {
   activeLotCount: number;
   primaryLotId: string | null;
   canDelete: boolean;
-  bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
+  bucket: "expired" | "today" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 type ProductCreateResult = {
@@ -453,7 +453,7 @@ function ProductsPageContent({
                       tone={
                         item.bucket === "expired"
                           ? "danger"
-                          : item.bucket === "within7"
+                          : item.bucket === "today" || item.bucket === "within7"
                             ? "warning"
                             : item.bucket === "within30"
                               ? "info"
@@ -464,13 +464,15 @@ function ProductsPageContent({
                     >
                       {item.bucket === "expired"
                         ? "期限切れ"
-                        : item.bucket === "within7"
-                          ? "7日以内"
-                          : item.bucket === "within30"
-                            ? "30日以内"
-                            : item.bucket === "outOfStock"
-                              ? "在庫なし"
-                              : "正常"}
+                        : item.bucket === "today"
+                          ? "本日"
+                          : item.bucket === "within7"
+                            ? "7日以内"
+                            : item.bucket === "within30"
+                              ? "30日以内"
+                              : item.bucket === "outOfStock"
+                                ? "在庫なし"
+                                : "正常"}
                     </Badge>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
