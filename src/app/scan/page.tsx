@@ -28,6 +28,31 @@ type LookupState =
   | { status: "error"; janCode: string; message: string };
 
 const recentScanStorageKey = "otc-checker:recent-scans";
+const receiptDefaultsStorageKey = "otc-checker:scan-receipt-defaults";
+
+function readStoredReceiptDefaults() {
+  if (typeof window === "undefined") {
+    return { expiryDate: "", quantity: 1 };
+  }
+
+  try {
+    const saved = window.localStorage.getItem(receiptDefaultsStorageKey);
+
+    if (!saved) {
+      return { expiryDate: "", quantity: 1 };
+    }
+
+    const parsed = JSON.parse(saved) as { expiryDate?: string; quantity?: number };
+
+    return {
+      expiryDate: typeof parsed.expiryDate === "string" ? parsed.expiryDate : "",
+      quantity: typeof parsed.quantity === "number" && parsed.quantity > 0 ? parsed.quantity : 1,
+    };
+  } catch {
+    window.localStorage.removeItem(receiptDefaultsStorageKey);
+    return { expiryDate: "", quantity: 1 };
+  }
+}
 
 export default function ScanPage() {
   const [janCode, setJanCode] = useState("");
@@ -37,8 +62,8 @@ export default function ScanPage() {
   });
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [expiryDate, setExpiryDate] = useState(() => readStoredReceiptDefaults().expiryDate);
+  const [quantity, setQuantity] = useState(() => readStoredReceiptDefaults().quantity);
   const [message, setMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,6 +148,20 @@ export default function ScanPage() {
       return next;
     });
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      receiptDefaultsStorageKey,
+      JSON.stringify({
+        expiryDate,
+        quantity,
+      }),
+    );
+  }, [expiryDate, quantity]);
 
   useEffect(() => {
     if (!isOnline) {
@@ -218,8 +257,6 @@ export default function ScanPage() {
       setLookupState({ status: "idle", janCode: "" });
       setName("");
       setSpec("");
-      setExpiryDate("");
-      setQuantity(1);
     } catch (cause) {
       setSubmitError((cause as Error).message);
     } finally {
@@ -344,6 +381,14 @@ export default function ScanPage() {
           </div>
         </div>
         <p className="text-sm text-slate-500">{helperText}</p>
+        {(expiryDate || quantity > 1) ? (
+          <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900">
+            <p className="font-medium">前回の入荷条件を保持中</p>
+            <p className="mt-1">
+              期限日 {expiryDate || "未設定"} / 数量 {quantity}個
+            </p>
+          </div>
+        ) : null}
         <Button className="w-full" disabled={!canSubmit} onClick={submit}>
           {isSubmitting ? "登録中..." : isLookupPending ? "JAN照会中..." : "登録する"}
         </Button>
