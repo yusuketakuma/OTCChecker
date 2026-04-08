@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { fetchJson, postJson } from "@/lib/client";
+import { addDaysToDateKey, todayJstKey } from "@/lib/date";
 import {
   janInputProps,
   parsePositiveIntegerInput,
@@ -48,6 +49,15 @@ const productFilters = [
   { key: "stocked", label: "在庫あり" },
   { key: "outOfStock", label: "在庫なし" },
 ] as const;
+
+const receiptExpiryPresets = [
+  { label: "今日", days: 0 },
+  { label: "+30日", days: 30 },
+  { label: "+90日", days: 90 },
+  { label: "+180日", days: 180 },
+] as const;
+
+const quantityPresets = [1, 3, 5, 10] as const;
 
 type ProductFilterKey = (typeof productFilters)[number]["key"];
 
@@ -289,20 +299,50 @@ function ProductsPageContent({
             placeholder="JANコード"
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              disabled={!isOnline || creating}
-              type="date"
-              value={expiryDate}
-              onChange={(event) => setExpiryDate(event.target.value)}
-            />
-            <Input
-              {...positiveIntegerInputProps}
-              enterKeyHint="done"
-              value={quantity}
-              onChange={(event) => setQuantity(event.target.value)}
-              placeholder="初回数量（期限入力時のみ）"
-              disabled={!isOnline || creating || !expiryDate}
-            />
+            <div className="space-y-2">
+              <Input
+                disabled={!isOnline || creating}
+                type="date"
+                value={expiryDate}
+                onChange={(event) => setExpiryDate(event.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                {receiptExpiryPresets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    disabled={!isOnline || creating}
+                    className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                    onClick={() => setExpiryDate(addDaysToDateKey(todayJstKey(), preset.days))}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Input
+                {...positiveIntegerInputProps}
+                enterKeyHint="done"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                placeholder="初回数量（期限入力時のみ）"
+                disabled={!isOnline || creating || !expiryDate}
+              />
+              <div className="flex flex-wrap gap-2">
+                {quantityPresets.map((preset) => (
+                  <button
+                    key={`product-qty-${preset}`}
+                    type="button"
+                    disabled={!isOnline || creating || !expiryDate}
+                    className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                    onClick={() => setQuantity(String(preset))}
+                  >
+                    {preset}個
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <p className="text-xs text-slate-500">
             期限を入れない場合は商品マスタのみ登録します。初回在庫を同時登録したいときだけ期限日と数量を入力してください。
