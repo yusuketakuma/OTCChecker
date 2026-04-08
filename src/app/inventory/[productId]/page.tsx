@@ -30,6 +30,7 @@ import {
 import { parseAlertDaysInput } from "@/lib/utils";
 
 type HistoryTab = "receipts" | "sales" | "disposals" | "adjustments";
+type LotActionKind = "update" | "adjust" | "dispose" | "delete";
 
 type Lot = {
   id: string;
@@ -308,6 +309,7 @@ export default function InventoryDetailPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [receiving, setReceiving] = useState(false);
   const [selling, setSelling] = useState(false);
   const [editName, setEditName] = useState("");
   const [editSpec, setEditSpec] = useState("");
@@ -324,6 +326,10 @@ export default function InventoryDetailPage() {
   const [saleQuantity, setSaleQuantity] = useState("1");
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
   const [pendingDeleteLotId, setPendingDeleteLotId] = useState<string | null>(null);
+  const [pendingLotAction, setPendingLotAction] = useState<{
+    lotId: string;
+    action: LotActionKind;
+  } | null>(null);
   const parsedReceiptQuantity = parsePositiveIntegerInput(receiptQuantity);
   const alertDaysInput = parseAlertDaysInput(editAlertDays);
   const parsedSaleQuantity = parsePositiveIntegerInput(saleQuantity);
@@ -470,6 +476,10 @@ export default function InventoryDetailPage() {
   }
 
   async function updateLot(lot: Lot) {
+    if (pendingLotAction?.lotId === lot.id) {
+      return;
+    }
+
     const quantityAction = getQuantityActionState(
       lot,
       qtyDrafts[lot.id] ?? String(lot.quantity),
@@ -485,6 +495,7 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setPendingLotAction({ lotId: lot.id, action: "update" });
       setError("");
       setMessage("");
       await putJson(`/api/lots/${lot.id}`, {
@@ -496,10 +507,16 @@ export default function InventoryDetailPage() {
       await load();
     } catch (cause) {
       setError((cause as Error).message);
+    } finally {
+      setPendingLotAction(null);
     }
   }
 
   async function disposeLot(lot: Lot) {
+    if (pendingLotAction?.lotId === lot.id) {
+      return;
+    }
+
     const disposeAction = getDisposeActionState(
       lot,
       disposeDrafts[lot.id] ?? "",
@@ -515,6 +532,7 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setPendingLotAction({ lotId: lot.id, action: "dispose" });
       setError("");
       setMessage("");
       await postJson(`/api/lots/${lot.id}/dispose`, {
@@ -526,10 +544,16 @@ export default function InventoryDetailPage() {
       await load();
     } catch (cause) {
       setError((cause as Error).message);
+    } finally {
+      setPendingLotAction(null);
     }
   }
 
   async function adjustLot(lot: Lot) {
+    if (pendingLotAction?.lotId === lot.id) {
+      return;
+    }
+
     const adjustAction = getAdjustActionState(
       lot,
       adjustDrafts[lot.id] ?? "0",
@@ -545,6 +569,7 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setPendingLotAction({ lotId: lot.id, action: "adjust" });
       setError("");
       setMessage("");
       await postJson(`/api/lots/${lot.id}/adjust`, {
@@ -556,10 +581,16 @@ export default function InventoryDetailPage() {
       await load();
     } catch (cause) {
       setError((cause as Error).message);
+    } finally {
+      setPendingLotAction(null);
     }
   }
 
   async function deleteLot(lot: Lot) {
+    if (pendingLotAction?.lotId === lot.id) {
+      return;
+    }
+
     const deleteAction = getDeleteActionState(lot, isOnline);
 
     if (deleteAction.disabled) {
@@ -569,6 +600,7 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setPendingLotAction({ lotId: lot.id, action: "delete" });
       setError("");
       setMessage("");
       await fetchJson(`/api/lots/${lot.id}`, { method: "DELETE" });
@@ -577,11 +609,17 @@ export default function InventoryDetailPage() {
       await load();
     } catch (cause) {
       setError((cause as Error).message);
+    } finally {
+      setPendingLotAction(null);
     }
   }
 
   async function receiveStock() {
-    if (!product || !receiptExpiryDate) {
+    if (receiving || !product) {
+      return;
+    }
+
+    if (!receiptExpiryDate) {
       setError("入荷登録には期限日が必要です。");
       return;
     }
@@ -592,6 +630,7 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setReceiving(true);
       setError("");
       setMessage("");
       await postJson("/api/lots", {
@@ -603,6 +642,8 @@ export default function InventoryDetailPage() {
       await load();
     } catch (cause) {
       setError((cause as Error).message);
+    } finally {
+      setReceiving(false);
     }
   }
 
@@ -713,7 +754,7 @@ export default function InventoryDetailPage() {
           <div className="space-y-2">
             <FieldLabel>期限日</FieldLabel>
             <Input
-              disabled={!isOnline}
+              disabled={!isOnline || receiving}
               type="date"
               value={receiptExpiryDate}
               onChange={(event) => setReceiptExpiryDate(event.target.value)}
@@ -723,7 +764,7 @@ export default function InventoryDetailPage() {
                 <button
                   key={preset.label}
                   type="button"
-                  disabled={!isOnline}
+                  disabled={!isOnline || receiving}
                   className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
                   onClick={() => setReceiptExpiryDate(addDaysToDateKey(todayJstKey(), preset.days))}
                 >
@@ -735,7 +776,7 @@ export default function InventoryDetailPage() {
           <div className="space-y-2">
             <FieldLabel>数量</FieldLabel>
             <Input
-              disabled={!isOnline}
+              disabled={!isOnline || receiving}
               {...positiveIntegerInputProps}
               enterKeyHint="done"
               value={receiptQuantity}
@@ -746,7 +787,7 @@ export default function InventoryDetailPage() {
                 <button
                   key={`receipt-${preset}`}
                   type="button"
-                  disabled={!isOnline}
+                  disabled={!isOnline || receiving}
                   className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
                   onClick={() => setReceiptQuantity(String(preset))}
                 >
@@ -757,10 +798,10 @@ export default function InventoryDetailPage() {
           </div>
           <Button
             className="w-full sm:col-span-2"
-            disabled={!isOnline || !receiptExpiryDate || parsedReceiptQuantity === null}
+            disabled={!isOnline || receiving || !receiptExpiryDate || parsedReceiptQuantity === null}
             onClick={receiveStock}
           >
-            入荷登録
+            {receiving ? "登録中..." : "入荷登録"}
           </Button>
         </div>
       </Card>
@@ -855,6 +896,8 @@ export default function InventoryDetailPage() {
           <div className="space-y-3">
             {product.lots.map((lot) => {
               const status = lotStatusMeta[lot.status];
+              const lotBusy = pendingLotAction?.lotId === lot.id;
+              const activeLotAction = lotBusy ? pendingLotAction.action : null;
               const quantityAction = getQuantityActionState(
                 lot,
                 qtyDrafts[lot.id] ?? String(lot.quantity),
@@ -875,7 +918,7 @@ export default function InventoryDetailPage() {
               );
               const deleteAction = getDeleteActionState(lot, isOnline);
               const disposeInputsDisabled =
-                !isOnline || lot.status !== "ACTIVE" || lot.quantity < 1;
+                !isOnline || lot.status !== "ACTIVE" || lot.quantity < 1 || lotBusy;
               const deleteConfirmOpen = pendingDeleteLotId === lot.id;
 
               return (
@@ -898,7 +941,7 @@ export default function InventoryDetailPage() {
                       <div className="space-y-2">
                         <FieldLabel>現在庫</FieldLabel>
                         <Input
-                          disabled={!isOnline}
+                          disabled={!isOnline || lotBusy}
                           {...nonNegativeIntegerInputProps}
                           enterKeyHint="next"
                           value={qtyDrafts[lot.id] ?? String(lot.quantity)}
@@ -913,7 +956,7 @@ export default function InventoryDetailPage() {
                       <div className="space-y-2">
                         <FieldLabel>理由</FieldLabel>
                         <Input
-                          disabled={!isOnline}
+                          disabled={!isOnline || lotBusy}
                           value={reasonDrafts[lot.id] ?? ""}
                           onChange={(event) =>
                             setReasonDrafts((current) => ({
@@ -935,15 +978,15 @@ export default function InventoryDetailPage() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Button
                         className="w-full"
-                        disabled={quantityAction.disabled}
+                        disabled={quantityAction.disabled || lotBusy}
                         variant="secondary"
                         onClick={() => updateLot(lot)}
                       >
-                        数量更新
+                        {activeLotAction === "update" ? "更新中..." : "数量更新"}
                       </Button>
                       <Button
                         className="w-full"
-                        disabled={deleteAction.disabled}
+                        disabled={deleteAction.disabled || lotBusy}
                         variant="danger"
                         onClick={() =>
                           setPendingDeleteLotId((current) => (current === lot.id ? null : lot.id))
@@ -966,11 +1009,17 @@ export default function InventoryDetailPage() {
                           このロットを削除します。履歴がある場合は削除できません。
                         </p>
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <Button className="w-full" variant="danger" onClick={() => deleteLot(lot)}>
-                            このロットを削除する
+                          <Button
+                            className="w-full"
+                            disabled={lotBusy}
+                            variant="danger"
+                            onClick={() => deleteLot(lot)}
+                          >
+                            {activeLotAction === "delete" ? "削除中..." : "このロットを削除する"}
                           </Button>
                           <Button
                             className="w-full"
+                            disabled={lotBusy}
                             variant="secondary"
                             onClick={() => setPendingDeleteLotId(null)}
                           >
@@ -986,7 +1035,7 @@ export default function InventoryDetailPage() {
                       <div className="space-y-2">
                         <FieldLabel>差分</FieldLabel>
                         <Input
-                          disabled={!isOnline}
+                          disabled={!isOnline || lotBusy}
                           {...signedIntegerInputProps}
                           enterKeyHint="next"
                           value={adjustDrafts[lot.id] ?? "0"}
@@ -1001,7 +1050,7 @@ export default function InventoryDetailPage() {
                       <div className="space-y-2">
                         <FieldLabel>理由</FieldLabel>
                         <Input
-                          disabled={!isOnline}
+                          disabled={!isOnline || lotBusy}
                           value={adjustReasons[lot.id] ?? ""}
                           onChange={(event) =>
                             setAdjustReasons((current) => ({
@@ -1022,11 +1071,11 @@ export default function InventoryDetailPage() {
                     </p>
                     <Button
                       className="w-full"
-                      disabled={adjustAction.disabled}
+                      disabled={adjustAction.disabled || lotBusy}
                       variant="secondary"
                       onClick={() => adjustLot(lot)}
                     >
-                      差分調整
+                      {activeLotAction === "adjust" ? "調整中..." : "差分調整"}
                     </Button>
                   </div>
                   <div className="space-y-3 border-t border-slate-100 pt-4">
@@ -1105,10 +1154,10 @@ export default function InventoryDetailPage() {
                     </p>
                     <Button
                       className="w-full"
-                      disabled={disposeAction.disabled}
+                      disabled={disposeAction.disabled || lotBusy}
                       onClick={() => disposeLot(lot)}
                     >
-                      廃棄登録
+                      {activeLotAction === "dispose" ? "登録中..." : "廃棄登録"}
                     </Button>
                   </div>
                 </Card>
