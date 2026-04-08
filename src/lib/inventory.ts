@@ -445,6 +445,84 @@ export async function executeImportBatch(previewId: string) {
   }
 }
 
+export async function executeManualSale(params: {
+  productId: string;
+  quantity: number;
+  transactionDate?: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const product = await tx.product.findUnique({
+      where: { id: params.productId },
+      select: { id: true },
+    });
+
+    if (!product) {
+      throw new Error("PRODUCT_NOT_FOUND");
+    }
+
+    const lots = await tx.inventoryLot.findMany({
+      where: {
+        productId: params.productId,
+        status: InventoryLotStatus.ACTIVE,
+      },
+      orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    });
+
+    const allocation = allocateLots(
+      lots.map((lot) => ({ id: lot.id, quantity: lot.quantity })),
+      params.quantity,
+    );
+
+    if (allocation.remainingQuantity > 0) {
+      throw new Error("INSUFFICIENT_STOCK");
+    }
+
+    const transactionDate = params.transactionDate
+      ? parseDateOnly(params.transactionDate)
+      : null;
+    const manualSaleId = crypto.randomUUID();
+
+    for (const item of allocation.allocations) {
+      const lot = lots.find((entry) => entry.id === item.lotId);
+
+      if (!lot) {
+        continue;
+      }
+
+      const nextQuantity = lot.quantity - item.quantity;
+
+      await tx.inventoryLot.update({
+        where: { id: item.lotId },
+        data: {
+          quantity: nextQuantity,
+          version: { increment: 1 },
+          status: nextQuantity === 0 ? InventoryLotStatus.ARCHIVED : undefined,
+          archivedAt: nextQuantity === 0 ? new Date() : undefined,
+        },
+      });
+
+      await tx.salesRecord.create({
+        data: {
+          lotId: item.lotId,
+          quantity: item.quantity,
+          source: "MANUAL",
+          posTransactionId: manualSaleId,
+          transactionDate,
+          dedupeKey: `manual:${manualSaleId}:${item.lotId}`,
+        },
+      });
+    }
+
+    return {
+      productId: params.productId,
+      quantity: params.quantity,
+      transactionDate: params.transactionDate ?? null,
+      saleId: manualSaleId,
+      allocations: allocation.allocations,
+    };
+  });
+}
+
 export function mapErrorToStatus(error: unknown) {
   if (!(error instanceof Error)) {
     return { status: 500, code: "UNKNOWN", message: "Unknown error" };

@@ -48,6 +48,14 @@ export const disposeSchema = z.object({
   version: z.number().int().min(1),
 });
 
+export const manualSaleSchema = z.object({
+  quantity: z.number().int().positive(),
+  transactionDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+
 export const settingsSchema = z.object({
   defaultAlertDays: alertDaysSchema,
 });

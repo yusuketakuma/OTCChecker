@@ -11,7 +11,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, postJson, putJson } from "@/lib/client";
-import { formatDateLabel, formatDateTimeLabel } from "@/lib/date";
+import { formatDateLabel, formatDateTimeLabel, todayJstKey } from "@/lib/date";
 
 type HistoryTab = "receipts" | "sales" | "disposals" | "adjustments";
 
@@ -22,7 +22,13 @@ type Lot = {
   initialQuantity: number;
   status: string;
   version: number;
-  salesRecords: Array<{ id: string; quantity: number; createdAt: string }>;
+  salesRecords: Array<{
+    id: string;
+    quantity: number;
+    source: "CSV_IMPORT" | "MANUAL";
+    transactionDate: string | null;
+    createdAt: string;
+  }>;
   disposalRecords: Array<{ id: string; quantity: number; reason: string; createdAt: string }>;
   adjustmentRecords: Array<{ id: string; delta: number; reason: string; createdAt: string }>;
   receiptRecords: Array<{ id: string; quantity: number; createdAt: string }>;
@@ -50,7 +56,9 @@ export default function InventoryDetailPage() {
   const isOnline = useOnlineStatus();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selling, setSelling] = useState(false);
   const [editName, setEditName] = useState("");
   const [editSpec, setEditSpec] = useState("");
   const [editAlertDays, setEditAlertDays] = useState("30,7,0");
@@ -62,6 +70,8 @@ export default function InventoryDetailPage() {
   const [disposeReasons, setDisposeReasons] = useState<Record<string, string>>({});
   const [receiptExpiryDate, setReceiptExpiryDate] = useState("");
   const [receiptQuantity, setReceiptQuantity] = useState(1);
+  const [saleDate, setSaleDate] = useState(todayJstKey());
+  const [saleQuantity, setSaleQuantity] = useState(1);
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
 
   const load = useCallback(async () => {
@@ -81,6 +91,8 @@ export default function InventoryDetailPage() {
       );
       setReceiptExpiryDate(detail.lots[0]?.expiryDate.slice(0, 10) ?? "");
       setReceiptQuantity(1);
+      setSaleDate(todayJstKey());
+      setSaleQuantity(1);
       setError("");
     } catch (cause) {
       setError((cause as Error).message);
@@ -121,7 +133,7 @@ export default function InventoryDetailPage() {
             id: item.id,
             lotId: lot.id,
             date: item.createdAt,
-            detail: `期限 ${formatDateLabel(lot.expiryDate)} / ${item.quantity}個`,
+            detail: `期限 ${formatDateLabel(lot.expiryDate)} / ${item.quantity}個 / ${item.source === "MANUAL" ? "手動売上" : "CSV"}${item.transactionDate ? ` / 売上日 ${formatDateLabel(item.transactionDate)}` : ""}`,
           })),
         )
         .sort((a, b) => b.date.localeCompare(a.date)),
@@ -156,6 +168,7 @@ export default function InventoryDetailPage() {
     setSaving(true);
 
     try {
+      setMessage("");
       await putJson(`/api/products/${product.id}`, {
         name: editName,
         spec: editSpec,
@@ -164,6 +177,7 @@ export default function InventoryDetailPage() {
           .map((item) => Number(item.trim()))
           .filter((item) => Number.isFinite(item)),
       });
+      setMessage("商品マスタを更新しました。");
       await load();
     } catch (cause) {
       setError((cause as Error).message);
@@ -174,11 +188,13 @@ export default function InventoryDetailPage() {
 
   async function updateLot(lot: Lot) {
     try {
+      setMessage("");
       await putJson(`/api/lots/${lot.id}`, {
         quantity: qtyDrafts[lot.id],
         reason: reasonDrafts[lot.id],
         version: lot.version,
       });
+      setMessage("在庫数量を更新しました。");
       await load();
     } catch (cause) {
       setError((cause as Error).message);
@@ -187,11 +203,13 @@ export default function InventoryDetailPage() {
 
   async function disposeLot(lot: Lot) {
     try {
+      setMessage("");
       await postJson(`/api/lots/${lot.id}/dispose`, {
         quantity: disposeDrafts[lot.id],
         reason: disposeReasons[lot.id],
         version: lot.version,
       });
+      setMessage("廃棄を登録しました。");
       await load();
     } catch (cause) {
       setError((cause as Error).message);
@@ -200,11 +218,13 @@ export default function InventoryDetailPage() {
 
   async function adjustLot(lot: Lot) {
     try {
+      setMessage("");
       await postJson(`/api/lots/${lot.id}/adjust`, {
         delta: adjustDrafts[lot.id],
         reason: adjustReasons[lot.id],
         version: lot.version,
       });
+      setMessage("差分調整を登録しました。");
       await load();
     } catch (cause) {
       setError((cause as Error).message);
@@ -217,7 +237,9 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setMessage("");
       await fetchJson(`/api/lots/${lot.id}`, { method: "DELETE" });
+      setMessage("ロットを削除しました。");
       await load();
     } catch (cause) {
       setError((cause as Error).message);
@@ -231,14 +253,38 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setMessage("");
       await postJson("/api/lots", {
         productId: product.id,
         expiryDate: receiptExpiryDate,
         quantity: receiptQuantity,
       });
+      setMessage("入荷を登録しました。");
       await load();
     } catch (cause) {
       setError((cause as Error).message);
+    }
+  }
+
+  async function recordManualSale() {
+    if (!product) {
+      return;
+    }
+
+    setSelling(true);
+
+    try {
+      setMessage("");
+      await postJson(`/api/products/${product.id}/sales`, {
+        quantity: saleQuantity,
+        transactionDate: saleDate || undefined,
+      });
+      setMessage("手動売上を登録しました。");
+      await load();
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setSelling(false);
     }
   }
 
@@ -251,9 +297,10 @@ export default function InventoryDetailPage() {
       />
 
       {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+      {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
       {!isOnline ? (
         <p className="text-sm text-[var(--color-danger)]">
-          オフライン中は閲覧のみです。更新、調整、廃棄、削除は接続回復後に行ってください。
+          オフライン中は閲覧のみです。更新、売上、調整、廃棄、削除は接続回復後に行ってください。
         </p>
       ) : null}
 
@@ -292,6 +339,29 @@ export default function InventoryDetailPage() {
           />
           <Button disabled={!isOnline || !receiptExpiryDate} onClick={receiveStock}>
             入荷登録
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>手動売上登録</CardTitle>
+        <CardDescription>CSV を待たずに、その場の販売や補正売上を FIFO で反映します。</CardDescription>
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
+          <Input
+            disabled={!isOnline}
+            type="date"
+            value={saleDate}
+            onChange={(event) => setSaleDate(event.target.value)}
+          />
+          <Input
+            disabled={!isOnline}
+            type="number"
+            min={1}
+            value={saleQuantity}
+            onChange={(event) => setSaleQuantity(Math.max(1, Number(event.target.value)))}
+          />
+          <Button disabled={!isOnline || !saleDate || selling} variant="secondary" onClick={recordManualSale}>
+            {selling ? "登録中..." : "売上登録"}
           </Button>
         </div>
       </Card>
