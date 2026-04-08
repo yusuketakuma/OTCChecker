@@ -13,6 +13,11 @@ import { Input } from "@/components/ui/input";
 import { fetchJson, postJson } from "@/lib/client";
 import { addDaysToDateKey, todayJstKey } from "@/lib/date";
 import {
+  clearStoredReceiptDefaults,
+  readStoredReceiptDefaults,
+  writeStoredReceiptDefaults,
+} from "@/lib/receipt-defaults";
+import {
   janInputProps,
   parsePositiveIntegerInput,
   positiveIntegerInputProps,
@@ -98,8 +103,8 @@ function ProductsPageContent({
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
   const [janCode, setJanCode] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
-  const [quantity, setQuantity] = useState("1");
+  const [expiryDate, setExpiryDate] = useState(() => readStoredReceiptDefaults().expiryDate);
+  const [quantity, setQuantity] = useState(() => String(readStoredReceiptDefaults().quantity));
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDeleteProductId, setPendingDeleteProductId] = useState<string | null>(null);
@@ -153,6 +158,18 @@ function ProductsPageContent({
       router.replace(nextUrl, { scroll: false });
     });
   }, [filter, pathname, query, router, searchParams]);
+
+  useEffect(() => {
+    writeStoredReceiptDefaults(expiryDate, initialLotQuantity ?? 1);
+  }, [expiryDate, initialLotQuantity]);
+
+  function clearReceiptDefaults() {
+    setExpiryDate("");
+    setQuantity("1");
+    clearStoredReceiptDefaults();
+    setMessage("入荷条件の保持をクリアしました。");
+    setError("");
+  }
 
   async function createProduct() {
     if (expiryDate && initialLotQuantity === null) {
@@ -347,6 +364,26 @@ function ProductsPageContent({
           <p className="text-xs text-slate-500">
             期限を入れない場合は商品マスタのみ登録します。初回在庫を同時登録したいときだけ期限日と数量を入力してください。
           </p>
+          {(expiryDate || (initialLotQuantity ?? 1) > 1) ? (
+            <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">前回の入荷条件を保持中</p>
+                  <p className="mt-1">
+                    期限日 {expiryDate || "未設定"} / 数量 {initialLotQuantity ?? 1}個
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!isOnline || creating}
+                  className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-emerald-900 ring-1 ring-emerald-200 disabled:opacity-50"
+                  onClick={clearReceiptDefaults}
+                >
+                  保持をクリア
+                </button>
+              </div>
+            </div>
+          ) : null}
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-3 text-xs leading-5 text-slate-600">
             <p>入力規則</p>
             <p className="mt-1">商品名・規格: 1〜120文字</p>
