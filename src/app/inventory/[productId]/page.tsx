@@ -706,7 +706,7 @@ export default function InventoryDetailPage() {
         </Button>
       </Card>
 
-      <Card className="space-y-4">
+      <Card className="scroll-mt-24 space-y-4" id="manual-receipt">
         <CardTitle>手動入荷登録</CardTitle>
         <CardDescription>バーコードが使えない場合も、この商品へ直接入荷を追加できます。前回の入荷条件も引き継ぎます。</CardDescription>
         <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
@@ -765,7 +765,7 @@ export default function InventoryDetailPage() {
         </div>
       </Card>
 
-      <Card className="space-y-4" id="manual-sale">
+      <Card className="scroll-mt-24 space-y-4" id="manual-sale">
         <CardTitle>手動売上登録</CardTitle>
         <CardDescription>CSV を待たずに、その場の販売や補正売上を FIFO で反映します。</CardDescription>
         <div className="rounded-2xl bg-slate-50/90 p-3 text-sm text-slate-700">
