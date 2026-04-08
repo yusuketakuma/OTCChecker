@@ -11,6 +11,7 @@ import { fetchJson } from "@/lib/client";
 
 type DashboardSummary = {
   expiredCount: number;
+  todayCount: number;
   within7Count: number;
   within30Count: number;
   unmatchedCount: number;
@@ -28,6 +29,7 @@ type DashboardSummary = {
 
 const cardConfig = [
   { key: "expiredCount", label: "期限切れ", tone: "danger", href: "/inventory?bucket=expired" },
+  { key: "todayCount", label: "本日", tone: "warning", href: "/inventory?bucket=today" },
   { key: "within7Count", label: "7日以内", tone: "warning", href: "/inventory?bucket=7d" },
   { key: "within30Count", label: "30日以内", tone: "info", href: "/inventory?bucket=30d" },
   { key: "unmatchedCount", label: "未割当", tone: "neutral", href: "/import" },
@@ -128,7 +130,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {cardConfig.map((item) => (
           <Link href={item.href} key={item.key}>
             <Card className="h-full bg-white/95 transition hover:-translate-y-0.5">
@@ -194,9 +196,11 @@ export default function DashboardPage() {
                     >
                       {lot.bucket === "expired"
                         ? "期限切れ"
-                        : lot.bucket === "within30"
-                          ? "30日以内"
-                          : "7日以内"}
+                        : lot.bucket === "today"
+                          ? "本日"
+                          : lot.bucket === "within30"
+                            ? "30日以内"
+                            : "7日以内"}
                     </Badge>
                   </div>
                 </Link>

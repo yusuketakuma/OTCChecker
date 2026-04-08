@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { fetchJson } from "@/lib/client";
 import { formatQuantity } from "@/lib/utils";
@@ -20,12 +21,13 @@ type InventoryRow = {
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
-  bucket: "expired" | "within7" | "within30" | "safe";
+  bucket: "expired" | "today" | "within7" | "within30" | "safe";
 };
 
 const tabs = [
   { key: "all", label: "全件" },
   { key: "expired", label: "期限切れ" },
+  { key: "today", label: "本日" },
   { key: "7d", label: "7日以内" },
   { key: "30d", label: "30日以内" },
 ] as const;
@@ -116,11 +118,16 @@ function InventoryPageContent({
 
       <Card className="space-y-4">
         <div className="space-y-3">
-          <Input
-            placeholder="商品名・規格・JANコードで検索"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          <div className="space-y-2">
+            <FormLabel htmlFor="inventory-search">在庫を検索</FormLabel>
+            <Input
+              aria-label="在庫を検索"
+              id="inventory-search"
+              placeholder="商品名・JANコード"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
           {query ? (
             <button
               type="button"
@@ -180,18 +187,20 @@ function InventoryPageContent({
                         ? "danger"
                         : item.bucket === "within30"
                           ? "info"
-                          : item.bucket === "within7"
+                          : item.bucket === "today" || item.bucket === "within7"
                             ? "warning"
                             : "success"
                     }
                   >
                     {item.bucket === "expired"
                       ? "期限切れ"
-                      : item.bucket === "within7"
-                        ? "7日以内"
-                        : item.bucket === "within30"
-                          ? "30日以内"
-                          : "正常"}
+                      : item.bucket === "today"
+                        ? "本日"
+                        : item.bucket === "within7"
+                          ? "7日以内"
+                          : item.bucket === "within30"
+                            ? "30日以内"
+                            : "正常"}
                   </Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
