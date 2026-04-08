@@ -10,17 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { fetchJson } from "@/lib/client";
-import { formatLotNumber, formatQuantity } from "@/lib/utils";
+import { formatQuantity } from "@/lib/utils";
 
 type InventoryRow = {
-  lotId: string;
   productId: string;
   name: string;
   spec: string;
   janCode: string;
-  expiryDate: string | null;
-  quantity: number;
-  bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
+  earliestExpiry: string | null;
+  totalQuantity: number;
+  activeLotCount: number;
+  bucket: "expired" | "within7" | "within30" | "safe";
 };
 
 const tabs = [
@@ -127,7 +127,7 @@ export default function InventoryPage() {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <Card className="space-y-3" key={item.lotId}>
+            <Card className="space-y-3" key={item.productId}>
               <Link href={`/inventory/${item.productId}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -142,8 +142,6 @@ export default function InventoryPage() {
                           ? "info"
                           : item.bucket === "within7"
                             ? "warning"
-                            : item.bucket === "outOfStock"
-                              ? "neutral"
                             : "success"
                     }
                   >
@@ -153,18 +151,14 @@ export default function InventoryPage() {
                         ? "7日以内"
                         : item.bucket === "within30"
                           ? "30日以内"
-                          : item.bucket === "outOfStock"
-                            ? "在庫なし"
                           : "正常"}
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
-                  <p className="col-span-2">
-                    ロット番号: {item.bucket === "outOfStock" ? "未登録" : formatLotNumber(item.lotId)}
-                  </p>
                   <p>JAN: {item.janCode}</p>
-                  <p>在庫数: {formatQuantity(item.quantity)}個</p>
-                  <p className="col-span-2">期限: {item.expiryDate ?? "-"}</p>
+                  <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
+                  <p>有効ロット: {item.activeLotCount}件</p>
+                  <p className="col-span-2">最短期限: {item.earliestExpiry ?? "-"}</p>
                 </div>
               </Link>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -178,7 +172,7 @@ export default function InventoryPage() {
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
                   href={`/inventory/${item.productId}`}
                 >
-                  {item.bucket === "outOfStock" ? "入荷登録" : "詳細を見る"}
+                  詳細を見る
                 </Link>
               </div>
             </Card>

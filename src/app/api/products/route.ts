@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
 import { parseDateOnly } from "@/lib/date";
-import { listInventoryRows, listProductMasters } from "@/lib/inventory";
+import { listInventoryProducts, listProductMasters } from "@/lib/inventory";
 import { getPrisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { productSchema } from "@/lib/validators";
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         ? await listProductMasters({
             search: searchParams.get("q") ?? "",
           })
-        : await listInventoryRows({
+        : await listInventoryProducts({
             search: searchParams.get("q") ?? "",
             bucket: searchParams.get("bucket") ?? "all",
           });

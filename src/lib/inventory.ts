@@ -16,15 +16,15 @@ import {
 import { type ImportRow, type PreviewRow, normalizeJanCode } from "@/lib/csv";
 import { getPrisma } from "@/lib/prisma";
 
-export type InventoryListRow = {
-  lotId: string;
+export type InventoryProductSummary = {
   productId: string;
   name: string;
   spec: string;
   janCode: string;
-  expiryDate: string | null;
-  quantity: number;
-  bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
+  earliestExpiry: string | null;
+  totalQuantity: number;
+  activeLotCount: number;
+  bucket: "expired" | "within7" | "within30" | "safe";
 };
 
 export type ProductMasterSummary = {
@@ -39,6 +39,14 @@ export type ProductMasterSummary = {
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
+type ProductSummaryBucket = ProductMasterSummary["bucket"];
+type ActiveInventoryBucket = InventoryProductSummary["bucket"];
+type ActiveLotSeed = {
+  productId: string;
+  expiryDate: Date;
+  quantity: number;
+};
+
 function readAlertDays(value: Prisma.JsonValue | null | undefined) {
   if (!Array.isArray(value)) {
     return [30, 7, 0];
@@ -51,95 +59,134 @@ function readAlertDays(value: Prisma.JsonValue | null | undefined) {
   );
 }
 
-export async function listInventoryRows(params: {
+function getSummaryBucket(expiryDate: Date | string): ActiveInventoryBucket {
+  const diffDays = diffDaysFromToday(expiryDate);
+  const expiryBucket = getExpiryBucket(diffDays);
+
+  if (expiryBucket === "expired") {
+    return "expired";
+  }
+
+  if (expiryBucket === "today" || expiryBucket === "within7") {
+    return "within7";
+  }
+
+  if (expiryBucket === "within30") {
+    return "within30";
+  }
+
+  return "safe";
+}
+
+function summarizeActiveLots(lots: ActiveLotSeed[]) {
+  const earliestLot = lots[0];
+
+  if (!earliestLot) {
+    return {
+      earliestExpiry: null,
+      totalQuantity: 0,
+      activeLotCount: 0,
+      bucket: "outOfStock" as ProductSummaryBucket,
+    };
+  }
+
+  return {
+    earliestExpiry: formatDateLabel(earliestLot.expiryDate),
+    totalQuantity: lots.reduce((sum, lot) => sum + lot.quantity, 0),
+    activeLotCount: lots.length,
+    bucket: getSummaryBucket(earliestLot.expiryDate) as ProductSummaryBucket,
+  };
+}
+
+function groupLotsByProductId<T extends { productId: string }>(lots: T[]) {
+  return lots.reduce<Map<string, T[]>>((map, lot) => {
+    const current = map.get(lot.productId) ?? [];
+    current.push(lot);
+    map.set(lot.productId, current);
+    return map;
+  }, new Map());
+}
+
+function matchesInventoryBucket(bucket: ActiveInventoryBucket, filter = "all") {
+  if (filter === "all") {
+    return true;
+  }
+
+  if (filter === "expired") {
+    return bucket === "expired";
+  }
+
+  if (filter === "7d") {
+    return bucket === "within7";
+  }
+
+  if (filter === "30d") {
+    return bucket === "within30";
+  }
+
+  return true;
+}
+
+export async function listInventoryProducts(params: {
   search?: string;
   bucket?: string;
 }) {
   const prisma = await getPrisma();
   const search = params.search?.trim();
-  const [products, lots] = await Promise.all([
-    prisma.product.findMany({
-      where: search
+  const lots = await prisma.inventoryLot.findMany({
+    where: {
+      status: InventoryLotStatus.ACTIVE,
+      product: search
         ? {
             OR: [{ name: { contains: search } }, { janCode: { contains: search } }],
           }
         : undefined,
-      orderBy: [{ createdAt: "desc" }],
-    }),
-    prisma.inventoryLot.findMany({
-      where: {
-        status: InventoryLotStatus.ACTIVE,
-        product: search
-          ? {
-              OR: [{ name: { contains: search } }, { janCode: { contains: search } }],
-            }
-          : undefined,
-      },
-      include: {
-        product: true,
-      },
-      orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-    }),
-  ]);
+    },
+    include: {
+      product: true,
+    },
+    orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+  });
 
-  const rows = [
-    ...lots.map<InventoryListRow>((lot) => {
-      const diffDays = diffDaysFromToday(lot.expiryDate);
-      const expiryBucket = getExpiryBucket(diffDays);
+  const summaries = Array.from(groupLotsByProductId(lots).values())
+    .map<InventoryProductSummary | null>((productLots) => {
+      const firstLot = productLots[0];
+
+      if (!firstLot) {
+        return null;
+      }
+
+      const summary = summarizeActiveLots(productLots);
+
+      if (summary.bucket === "outOfStock") {
+        return null;
+      }
 
       return {
-        lotId: lot.id,
-        productId: lot.productId,
-        name: lot.product.name,
-        spec: lot.product.spec,
-        janCode: lot.product.janCode,
-        expiryDate: formatDateLabel(lot.expiryDate),
-        quantity: lot.quantity,
-        bucket:
-          expiryBucket === "expired"
-            ? "expired"
-            : expiryBucket === "today" || expiryBucket === "within7"
-              ? "within7"
-              : expiryBucket === "within30"
-                ? "within30"
-                : "safe",
+        productId: firstLot.productId,
+        name: firstLot.product.name,
+        spec: firstLot.product.spec,
+        janCode: firstLot.product.janCode,
+        earliestExpiry: summary.earliestExpiry,
+        totalQuantity: summary.totalQuantity,
+        activeLotCount: summary.activeLotCount,
+        bucket: summary.bucket,
       };
-    }),
-    ...products
-      .filter((product) => !lots.some((lot) => lot.productId === product.id))
-      .map<InventoryListRow>((product) => ({
-        lotId: `empty-${product.id}`,
-        productId: product.id,
-        name: product.name,
-        spec: product.spec,
-        janCode: product.janCode,
-        expiryDate: null,
-        quantity: 0,
-        bucket: "outOfStock",
-      })),
-  ];
+    })
+    .filter((item): item is InventoryProductSummary => item !== null)
+    .filter((item) => matchesInventoryBucket(item.bucket, params.bucket));
 
-  return rows.filter((item) => {
-    const bucket = params.bucket ?? "all";
+  summaries.sort((left, right) => {
+    const dateCompare = (left.earliestExpiry ?? "").localeCompare(right.earliestExpiry ?? "");
 
-    if (bucket === "all") {
-      return true;
+    if (dateCompare !== 0) {
+      return dateCompare;
     }
 
-    if (bucket === "expired") {
-      return item.bucket === "expired";
-    }
-
-    if (bucket === "7d") {
-      return item.bucket === "within7";
-    }
-
-    if (bucket === "30d") {
-      return item.bucket === "within30";
-    }
-
-    return true;
+    return left.name.localeCompare(right.name, "ja");
   });
+
+  return summaries;
 }
 
 export async function listProductMasters(params: {
@@ -175,37 +222,11 @@ export async function listProductMasters(params: {
     }),
   ]);
 
-  const lotsByProductId = activeLots.reduce<Map<string, typeof activeLots>>((map, lot) => {
-    const current = map.get(lot.productId) ?? [];
-    current.push(lot);
-    map.set(lot.productId, current);
-    return map;
-  }, new Map());
+  const lotsByProductId = groupLotsByProductId(activeLots);
 
   return products.map<ProductMasterSummary>((product) => {
     const lots = lotsByProductId.get(product.id) ?? [];
-    const earliestLot = lots[0];
-    const totalQuantity = lots.reduce((sum, lot) => sum + lot.quantity, 0);
-    const bucket = earliestLot
-      ? (() => {
-          const diffDays = diffDaysFromToday(earliestLot.expiryDate);
-          const expiryBucket = getExpiryBucket(diffDays);
-
-          if (expiryBucket === "expired") {
-            return "expired";
-          }
-
-          if (expiryBucket === "today" || expiryBucket === "within7") {
-            return "within7";
-          }
-
-          if (expiryBucket === "within30") {
-            return "within30";
-          }
-
-          return "safe";
-        })()
-      : "outOfStock";
+    const summary = summarizeActiveLots(lots);
 
     return {
       productId: product.id,
@@ -213,10 +234,10 @@ export async function listProductMasters(params: {
       spec: product.spec,
       janCode: product.janCode,
       alertDays: readAlertDays(product.alertDays),
-      earliestExpiry: earliestLot ? formatDateLabel(earliestLot.expiryDate) : null,
-      totalQuantity,
-      activeLotCount: lots.length,
-      bucket,
+      earliestExpiry: summary.earliestExpiry,
+      totalQuantity: summary.totalQuantity,
+      activeLotCount: summary.activeLotCount,
+      bucket: summary.bucket,
     };
   });
 }
