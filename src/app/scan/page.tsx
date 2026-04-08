@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -20,17 +20,28 @@ type ProductLookup = {
   alertDays: number[];
 } | null;
 
+type LookupState =
+  | { status: "idle"; janCode: string }
+  | { status: "pending"; janCode: string }
+  | { status: "resolved"; janCode: string; product: NonNullable<ProductLookup> }
+  | { status: "missing"; janCode: string }
+  | { status: "error"; janCode: string; message: string };
+
 const recentScanStorageKey = "otc-checker:recent-scans";
 
 export default function ScanPage() {
   const [janCode, setJanCode] = useState("");
-  const [product, setProduct] = useState<ProductLookup>(null);
+  const [lookupState, setLookupState] = useState<LookupState>({
+    status: "idle",
+    janCode: "",
+  });
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentScans, setRecentScans] = useState<string[]>(() => {
     if (typeof window === "undefined") {
       return [];
@@ -50,12 +61,58 @@ export default function ScanPage() {
     }
   });
   const isOnline = useOnlineStatus();
+  const lookupJanCodeRef = useRef("");
+  const normalizedJanCode = normalizeJanCode(janCode);
+  const isJanComplete = /^\d{8,14}$/.test(normalizedJanCode);
+  const currentLookupMatchesJan = lookupState.janCode === normalizedJanCode;
+  const product =
+    lookupState.status === "resolved" && currentLookupMatchesJan
+      ? lookupState.product
+      : null;
+  const isLookupPending =
+    isOnline &&
+    isJanComplete &&
+    lookupState.status === "pending" &&
+    currentLookupMatchesJan;
+  const lookupError =
+    lookupState.status === "error" && currentLookupMatchesJan
+      ? lookupState.message
+      : "";
+  const requiresManualDetails =
+    isJanComplete &&
+    lookupState.status === "missing" &&
+    currentLookupMatchesJan;
+  const canSubmit =
+    isOnline &&
+    !isSubmitting &&
+    isJanComplete &&
+    Boolean(expiryDate) &&
+    quantity > 0 &&
+    !isLookupPending &&
+    !lookupError &&
+    (Boolean(product) || (requiresManualDetails && Boolean(name.trim()) && Boolean(spec.trim())));
+
+  function resetLookupForJan(value: string) {
+    const nextNormalized = normalizeJanCode(value);
+
+    setLookupState(
+      nextNormalized.length >= 8 && isOnline
+        ? { status: "pending", janCode: nextNormalized }
+        : { status: "idle", janCode: nextNormalized },
+    );
+    setName("");
+    setSpec("");
+    setSubmitError("");
+  }
 
   function handleJanChange(value: string) {
-    setJanCode(value);
+    const nextNormalized = normalizeJanCode(value);
 
-    if (normalizeJanCode(value).length < 8) {
-      setProduct(null);
+    setJanCode(value);
+    setMessage("");
+
+    if (nextNormalized !== normalizedJanCode) {
+      resetLookupForJan(value);
     }
   }
 
@@ -69,34 +126,74 @@ export default function ScanPage() {
 
   useEffect(() => {
     if (!isOnline) {
+      lookupJanCodeRef.current = "";
+      setLookupState({ status: "idle", janCode: normalizedJanCode });
       return;
     }
 
-    const code = normalizeJanCode(janCode);
-
-    if (code.length < 8) {
+    if (!isJanComplete) {
+      lookupJanCodeRef.current = "";
+      setLookupState({ status: "idle", janCode: normalizedJanCode });
       return;
     }
 
-    fetchJson<ProductLookup>(`/api/products/jan/${code}`)
+    const code = normalizedJanCode;
+    const controller = new AbortController();
+
+    lookupJanCodeRef.current = code;
+    setLookupState((current) =>
+      current.status === "pending" && current.janCode === code
+        ? current
+        : { status: "pending", janCode: code },
+    );
+
+    fetchJson<ProductLookup>(`/api/products/jan/${code}`, {
+      signal: controller.signal,
+    })
       .then((result) => {
-        setProduct(result);
+        if (lookupJanCodeRef.current !== code) {
+          return;
+        }
+
         if (result) {
+          setLookupState({
+            status: "resolved",
+            janCode: code,
+            product: result,
+          });
           setName(result.name);
           setSpec(result.spec);
         } else {
+          setLookupState({ status: "missing", janCode: code });
           setName("");
           setSpec("");
         }
       })
-      .catch((cause) => setError(cause.message));
-  }, [isOnline, janCode]);
+      .catch((cause) => {
+        if (controller.signal.aborted || lookupJanCodeRef.current !== code) {
+          return;
+        }
+
+        setLookupState({
+          status: "error",
+          janCode: code,
+          message: cause.message,
+        });
+        setName("");
+        setSpec("");
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [isJanComplete, isOnline, normalizedJanCode]);
 
   async function submit() {
     try {
-      setError("");
+      setIsSubmitting(true);
+      setSubmitError("");
       setMessage("");
-      const code = normalizeJanCode(janCode);
+      const code = normalizedJanCode;
 
       let productId = product?.id;
 
@@ -118,15 +215,55 @@ export default function ScanPage() {
       pushRecentScan(code);
       setMessage("入荷登録が完了しました。");
       setJanCode("");
-      setProduct(null);
+      setLookupState({ status: "idle", janCode: "" });
       setName("");
       setSpec("");
       setExpiryDate("");
       setQuantity(1);
     } catch (cause) {
-      setError((cause as Error).message);
+      setSubmitError((cause as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
+
+  const lookupTone =
+    !isOnline
+      ? "warning"
+      : isLookupPending
+        ? "info"
+        : product
+          ? "info"
+          : lookupError
+            ? "danger"
+            : requiresManualDetails
+              ? "neutral"
+              : "neutral";
+  const lookupLabel =
+    !isOnline
+      ? "照会停止中"
+      : isLookupPending
+        ? "JAN照会中"
+        : product
+          ? "既存SKU"
+          : lookupError
+            ? "照会エラー"
+            : requiresManualDetails
+              ? "新規SKU候補"
+              : "JAN入力待ち";
+  const helperText = !isOnline
+    ? "オフライン中は閲覧のみです。登録するには接続を回復してください。"
+    : !normalizedJanCode
+      ? "JANコードを入力すると商品を照会します。"
+      : !isJanComplete
+        ? "JANコードは数字のみ8〜14桁で入力してください。"
+        : isLookupPending
+          ? "現在のJANに一致する商品を確認しています。完了まで登録はできません。"
+          : product
+            ? "既存 SKU を読み込み済みです。"
+            : lookupError
+              ? "JAN照会に失敗しました。入力を確認して再試行してください。"
+              : "未登録 SKU の場合は商品名と規格を入力してください。";
 
   return (
     <div className="space-y-6">
@@ -140,10 +277,10 @@ export default function ScanPage() {
         <CardTitle>カメラ読取</CardTitle>
         <CardDescription>iPhone Safari は zxing 経由で読み取ります。権限がない場合は下の手入力を使います。</CardDescription>
         <BarcodeScanner
-          disabled={!isOnline}
+          disabled={!isOnline || isSubmitting}
           onDetected={(value) => {
             const normalized = normalizeJanCode(value);
-            setJanCode(normalized);
+            handleJanChange(normalized);
             pushRecentScan(normalized);
           }}
         />
@@ -155,44 +292,64 @@ export default function ScanPage() {
           <Badge tone={isOnline ? "success" : "warning"}>
             {isOnline ? "オンライン" : "オフライン"}
           </Badge>
-          <Badge tone={product ? "info" : "neutral"}>
-            {product ? "既存SKU" : "新規SKU候補"}
-          </Badge>
+          <Badge tone={lookupTone}>{lookupLabel}</Badge>
         </div>
         <div className="grid gap-3">
-          <Input value={janCode} onChange={(event) => handleJanChange(event.target.value)} placeholder="JANコード" />
-          <Input disabled={!isOnline} value={name} onChange={(event) => setName(event.target.value)} placeholder="商品名" />
-          <Input disabled={!isOnline} value={spec} onChange={(event) => setSpec(event.target.value)} placeholder="規格" />
-          <Input disabled={!isOnline} type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
+          <Input
+            disabled={isSubmitting}
+            value={janCode}
+            onChange={(event) => handleJanChange(event.target.value)}
+            placeholder="JANコード"
+          />
+          <Input
+            disabled={!isOnline || isSubmitting || isLookupPending || Boolean(product)}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="商品名"
+          />
+          <Input
+            disabled={!isOnline || isSubmitting || isLookupPending || Boolean(product)}
+            value={spec}
+            onChange={(event) => setSpec(event.target.value)}
+            placeholder="規格"
+          />
+          <Input
+            disabled={!isOnline || isSubmitting}
+            type="date"
+            value={expiryDate}
+            onChange={(event) => setExpiryDate(event.target.value)}
+          />
           <div className="flex items-center gap-3">
-            <Button disabled={!isOnline} variant="secondary" onClick={() => setQuantity((current) => Math.max(1, current - 1))}>
+            <Button
+              disabled={!isOnline || isSubmitting}
+              variant="secondary"
+              onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+            >
               -
             </Button>
             <Input
-              disabled={!isOnline}
+              disabled={!isOnline || isSubmitting}
               className="text-center"
               type="number"
               value={quantity}
               onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
             />
-            <Button disabled={!isOnline} variant="secondary" onClick={() => setQuantity((current) => current + 1)}>
+            <Button
+              disabled={!isOnline || isSubmitting}
+              variant="secondary"
+              onClick={() => setQuantity((current) => current + 1)}
+            >
               +
             </Button>
           </div>
         </div>
-        <p className="text-sm text-slate-500">
-          {product ? "既存 SKU を読み込み済みです。" : "未登録 SKU の場合は商品名と規格を入力してください。"}
-        </p>
-        <Button className="w-full" disabled={!isOnline} onClick={submit}>
-          登録する
+        <p className="text-sm text-slate-500">{helperText}</p>
+        <Button className="w-full" disabled={!canSubmit} onClick={submit}>
+          {isSubmitting ? "登録中..." : isLookupPending ? "JAN照会中..." : "登録する"}
         </Button>
-        {!isOnline ? (
-          <p className="text-sm text-[var(--color-danger)]">
-            オフライン中は閲覧のみです。登録するには接続を回復してください。
-          </p>
-        ) : null}
         {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
-        {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+        {lookupError ? <p className="text-sm text-[var(--color-danger)]">{lookupError}</p> : null}
+        {submitError ? <p className="text-sm text-[var(--color-danger)]">{submitError}</p> : null}
       </Card>
 
       <Card className="space-y-4">
@@ -207,8 +364,9 @@ export default function ScanPage() {
             {recentScans.map((item) => (
               <button
                 className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700"
+                disabled={isSubmitting}
                 key={item}
-                onClick={() => setJanCode(item)}
+                onClick={() => handleJanChange(item)}
                 type="button"
               >
                 {item}
