@@ -12,6 +12,12 @@ import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, postJson, putJson } from "@/lib/client";
 import { formatDateLabel, formatDateTimeLabel, todayJstKey } from "@/lib/date";
+import {
+  nonNegativeIntegerInputProps,
+  parsePositiveIntegerInput,
+  positiveIntegerInputProps,
+  signedIntegerInputProps,
+} from "@/lib/mobile-input";
 import { parseCommaSeparatedIntegers } from "@/lib/utils";
 
 type HistoryTab = "receipts" | "sales" | "disposals" | "adjustments";
@@ -288,11 +294,25 @@ export default function InventoryDetailPage() {
   const [disposeDrafts, setDisposeDrafts] = useState<Record<string, string>>({});
   const [disposeReasons, setDisposeReasons] = useState<Record<string, string>>({});
   const [receiptExpiryDate, setReceiptExpiryDate] = useState("");
-  const [receiptQuantity, setReceiptQuantity] = useState(1);
+  const [receiptQuantity, setReceiptQuantity] = useState("1");
   const [saleDate, setSaleDate] = useState(todayJstKey());
-  const [saleQuantity, setSaleQuantity] = useState(1);
+  const [saleQuantity, setSaleQuantity] = useState("1");
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
   const [pendingDeleteLotId, setPendingDeleteLotId] = useState<string | null>(null);
+  const parsedReceiptQuantity = parsePositiveIntegerInput(receiptQuantity);
+  const parsedSaleQuantity = parsePositiveIntegerInput(saleQuantity);
+  const totalActiveQuantity = useMemo(
+    () =>
+      product?.lots
+        .filter((lot) => lot.status === "ACTIVE")
+        .reduce((sum, lot) => sum + lot.quantity, 0) ?? 0,
+    [product],
+  );
+  const saleRemainingQuantity =
+    parsedSaleQuantity === null
+      ? totalActiveQuantity
+      : Math.max(totalActiveQuantity - parsedSaleQuantity, 0);
+  const saleExceedsStock = parsedSaleQuantity !== null && parsedSaleQuantity > totalActiveQuantity;
 
   const load = useCallback(async () => {
     try {
@@ -310,9 +330,9 @@ export default function InventoryDetailPage() {
         Object.fromEntries(detail.lots.map((lot) => [lot.id, "期限近接による廃棄"])),
       );
       setReceiptExpiryDate(detail.lots[0]?.expiryDate.slice(0, 10) ?? "");
-      setReceiptQuantity(1);
+      setReceiptQuantity("1");
       setSaleDate(todayJstKey());
-      setSaleQuantity(1);
+      setSaleQuantity("1");
       setPendingDeleteLotId(null);
       setError("");
     } catch (cause) {
@@ -522,13 +542,18 @@ export default function InventoryDetailPage() {
       return;
     }
 
+    if (parsedReceiptQuantity === null) {
+      setError("入荷数量は1以上の整数で入力してください。");
+      return;
+    }
+
     try {
       setError("");
       setMessage("");
       await postJson("/api/lots", {
         productId: product.id,
         expiryDate: receiptExpiryDate,
-        quantity: receiptQuantity,
+        quantity: parsedReceiptQuantity,
       });
       setMessage("入荷を登録しました。");
       await load();
@@ -542,13 +567,25 @@ export default function InventoryDetailPage() {
       return;
     }
 
+    if (parsedSaleQuantity === null) {
+      setError("売上数量は1以上の整数で入力してください。");
+      setMessage("");
+      return;
+    }
+
+    if (saleExceedsStock) {
+      setError(`現在庫 ${totalActiveQuantity} 個を超えるため売上登録できません。`);
+      setMessage("");
+      return;
+    }
+
     setSelling(true);
 
     try {
       setError("");
       setMessage("");
       await postJson(`/api/products/${product.id}/sales`, {
-        quantity: saleQuantity,
+        quantity: parsedSaleQuantity,
         transactionDate: saleDate || undefined,
       });
       setMessage("手動売上を登録しました。");
@@ -618,13 +655,17 @@ export default function InventoryDetailPage() {
             <FieldLabel>数量</FieldLabel>
             <Input
               disabled={!isOnline}
-              type="number"
-              min={1}
+              {...positiveIntegerInputProps}
+              enterKeyHint="done"
               value={receiptQuantity}
-              onChange={(event) => setReceiptQuantity(Math.max(1, Number(event.target.value)))}
+              onChange={(event) => setReceiptQuantity(event.target.value)}
             />
           </div>
-          <Button className="w-full sm:col-span-2" disabled={!isOnline || !receiptExpiryDate} onClick={receiveStock}>
+          <Button
+            className="w-full sm:col-span-2"
+            disabled={!isOnline || !receiptExpiryDate || parsedReceiptQuantity === null}
+            onClick={receiveStock}
+          >
             入荷登録
           </Button>
         </div>
@@ -633,6 +674,15 @@ export default function InventoryDetailPage() {
       <Card className="space-y-4">
         <CardTitle>手動売上登録</CardTitle>
         <CardDescription>CSV を待たずに、その場の販売や補正売上を FIFO で反映します。</CardDescription>
+        <div className="rounded-2xl bg-slate-50/90 p-3 text-sm text-slate-700">
+          <p>現在の販売可能在庫: {totalActiveQuantity}個</p>
+          <p>今回の売上後の見込み在庫: {saleRemainingQuantity}個</p>
+          {saleExceedsStock ? (
+            <p className="mt-2 text-[var(--color-danger)]">
+              現在庫を超える数量です。数量を減らしてから登録してください。
+            </p>
+          ) : null}
+        </div>
         <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
           <div className="space-y-2">
             <FieldLabel>売上日</FieldLabel>
@@ -647,14 +697,19 @@ export default function InventoryDetailPage() {
             <FieldLabel>数量</FieldLabel>
             <Input
               disabled={!isOnline}
-              type="number"
-              min={1}
+              {...positiveIntegerInputProps}
+              enterKeyHint="done"
               value={saleQuantity}
-              onChange={(event) => setSaleQuantity(Math.max(1, Number(event.target.value)))}
+              onChange={(event) => setSaleQuantity(event.target.value)}
             />
           </div>
-          <Button className="w-full sm:col-span-2" disabled={!isOnline || !saleDate || selling} variant="secondary" onClick={recordManualSale}>
-            {selling ? "登録中..." : "売上登録"}
+          <Button
+            className="w-full sm:col-span-2"
+            disabled={!isOnline || !saleDate || selling || parsedSaleQuantity === null || totalActiveQuantity === 0 || saleExceedsStock}
+            variant="secondary"
+            onClick={recordManualSale}
+          >
+            {selling ? "登録中..." : totalActiveQuantity === 0 ? "在庫がないため登録不可" : "売上登録"}
           </Button>
         </div>
       </Card>
@@ -714,10 +769,8 @@ export default function InventoryDetailPage() {
                         <FieldLabel>現在庫</FieldLabel>
                         <Input
                           disabled={!isOnline}
-                          inputMode="numeric"
-                          min={0}
-                          step={1}
-                          type="number"
+                          {...nonNegativeIntegerInputProps}
+                          enterKeyHint="next"
                           value={qtyDrafts[lot.id] ?? String(lot.quantity)}
                           onChange={(event) =>
                             setQtyDrafts((current) => ({
@@ -804,8 +857,8 @@ export default function InventoryDetailPage() {
                         <FieldLabel>差分</FieldLabel>
                         <Input
                           disabled={!isOnline}
-                          step={1}
-                          type="number"
+                          {...signedIntegerInputProps}
+                          enterKeyHint="next"
                           value={adjustDrafts[lot.id] ?? "0"}
                           onChange={(event) =>
                             setAdjustDrafts((current) => ({
@@ -853,10 +906,9 @@ export default function InventoryDetailPage() {
                         <FieldLabel>廃棄数</FieldLabel>
                         <Input
                           disabled={disposeInputsDisabled}
-                          inputMode="numeric"
-                          min={1}
-                          step={1}
-                          type="number"
+                          {...positiveIntegerInputProps}
+                          enterKeyHint="next"
+                          max={lot.quantity}
                           value={disposeDrafts[lot.id] ?? ""}
                           onChange={(event) =>
                             setDisposeDrafts((current) => ({
