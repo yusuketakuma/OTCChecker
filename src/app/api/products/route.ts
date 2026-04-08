@@ -1,4 +1,3 @@
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
@@ -72,7 +71,7 @@ export async function POST(request: Request) {
 
     return ok(product);
   } catch (error) {
-    if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return fail(409, "PRODUCT_ALREADY_EXISTS", "同じ JAN コードの商品がすでに存在します");
     }
 

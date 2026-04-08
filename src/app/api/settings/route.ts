@@ -1,4 +1,3 @@
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
@@ -41,7 +40,7 @@ export async function PUT(request: Request) {
 
     return ok(updated);
   } catch (error) {
-    if (error instanceof PrismaClientKnownRequestError) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return fail(422, "SETTINGS_UPDATE_FAILED", "設定の更新に失敗しました", error.message);
     }
 

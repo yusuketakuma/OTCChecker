@@ -1,4 +1,3 @@
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
@@ -98,7 +97,7 @@ export async function PUT(
 
     return ok(updated);
   } catch (error) {
-    if (error instanceof PrismaClientKnownRequestError && error.code === "P2025") {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return fail(404, "PRODUCT_NOT_FOUND", "商品が見つかりません");
     }
 
