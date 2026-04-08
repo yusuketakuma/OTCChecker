@@ -36,27 +36,29 @@ export async function POST(request: Request) {
     }
 
     const settings = await getSettings();
-    const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.product.findUnique({
-        where: { janCode: parsed.data.janCode },
-      });
+    const existing = await prisma.product.findUnique({
+      where: { janCode: parsed.data.janCode },
+    });
 
-      if (existing) {
-        if (parsed.data.initialLot) {
-          await receiveStockInTx(tx, {
-            productId: existing.id,
-            expiryDate: parsed.data.initialLot.expiryDate,
-            quantity: parsed.data.initialLot.quantity,
-          });
-        }
-
-        return {
-          ...existing,
-          action: parsed.data.initialLot ? "received-on-existing" : "existing",
-        };
+    if (existing) {
+      if (parsed.data.initialLot) {
+        await receiveStockInTx(prisma, {
+          productId: existing.id,
+          expiryDate: parsed.data.initialLot.expiryDate,
+          quantity: parsed.data.initialLot.quantity,
+        });
       }
 
-      const created = await tx.product.create({
+      return ok({
+        ...existing,
+        action: parsed.data.initialLot ? "received-on-existing" : "existing",
+      });
+    }
+
+    let created;
+
+    try {
+      created = await prisma.product.create({
         data: {
           name: parsed.data.name,
           spec: parsed.data.spec,
@@ -64,22 +66,43 @@ export async function POST(request: Request) {
           alertDays: (parsed.data.alertDays ?? settings.defaultAlertDays) as Prisma.InputJsonValue,
         },
       });
-
-      if (parsed.data.initialLot) {
-        await receiveStockInTx(tx, {
-          productId: created.id,
-          expiryDate: parsed.data.initialLot.expiryDate,
-          quantity: parsed.data.initialLot.quantity,
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const conflicted = await prisma.product.findUnique({
+          where: { janCode: parsed.data.janCode },
         });
+
+        if (conflicted) {
+          if (parsed.data.initialLot) {
+            await receiveStockInTx(prisma, {
+              productId: conflicted.id,
+              expiryDate: parsed.data.initialLot.expiryDate,
+              quantity: parsed.data.initialLot.quantity,
+            });
+          }
+
+          return ok({
+            ...conflicted,
+            action: parsed.data.initialLot ? "received-on-existing" : "existing",
+          });
+        }
       }
 
-      return {
-        ...created,
-        action: parsed.data.initialLot ? "created-with-lot" : "created",
-      };
-    });
+      throw error;
+    }
 
-    return ok(result);
+    if (parsed.data.initialLot) {
+      await receiveStockInTx(prisma, {
+        productId: created.id,
+        expiryDate: parsed.data.initialLot.expiryDate,
+        quantity: parsed.data.initialLot.quantity,
+      });
+    }
+
+    return ok({
+      ...created,
+      action: parsed.data.initialLot ? "created-with-lot" : "created",
+    });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return fail(409, "PRODUCT_ALREADY_EXISTS", "同じ JAN コードの商品がすでに存在します");
