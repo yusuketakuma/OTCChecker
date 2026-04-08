@@ -50,7 +50,7 @@ async function createNodePrismaClient() {
 
 async function createCloudflarePrismaClient(db: unknown) {
   const [{ PrismaClient }, { PrismaD1 }] = await Promise.all([
-    import("@prisma/client/edge"),
+    import("@prisma/client"),
     import("@prisma/adapter-d1"),
   ]);
 
