@@ -899,18 +899,24 @@ export default function ImportPage() {
                               {row.matchedProduct.name} / {row.matchedProduct.spec}
                             </p>
                           </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="grid gap-2 sm:grid-cols-3">
                             <Link
                               className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99]"
                               href={`/inventory/${row.matchedProduct.id}`}
                             >
-                              在庫詳細を見る
+                              在庫詳細
+                            </Link>
+                            <Link
+                              className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99]"
+                              href={`/inventory/${row.matchedProduct.id}#manual-receipt`}
+                            >
+                              手動入荷
                             </Link>
                             <Link
                               className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
                               href={`/scan?jan=${encodeURIComponent(row.matchedProduct.janCode)}&name=${encodeURIComponent(row.matchedProduct.name)}&spec=${encodeURIComponent(row.matchedProduct.spec)}&quantity=${encodeURIComponent(String(row.remainingQuantity))}`}
                             >
-                              この商品で入荷登録
+                              スキャン入荷
                             </Link>
                           </div>
                         </div>
