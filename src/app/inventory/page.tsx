@@ -115,11 +115,22 @@ function InventoryPageContent({
       />
 
       <Card className="space-y-4">
-        <Input
-          placeholder="商品名・規格・JANコードで検索"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <div className="space-y-3">
+          <Input
+            placeholder="商品名・規格・JANコードで検索"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {query ? (
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-slate-100 px-4 text-sm font-medium text-slate-700 transition active:scale-[0.99]"
+              onClick={() => setQuery("")}
+            >
+              検索をクリア
+            </button>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
@@ -136,6 +147,15 @@ function InventoryPageContent({
             </button>
           ))}
         </div>
+        {bucket !== "all" ? (
+          <button
+            type="button"
+            className="inline-flex h-10 items-center justify-center rounded-full bg-slate-100 px-4 text-sm font-medium text-slate-700 transition active:scale-[0.99]"
+            onClick={() => setBucket("all")}
+          >
+            絞り込みを解除
+          </button>
+        ) : null}
       </Card>
 
       {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
