@@ -12,7 +12,7 @@ export async function POST(
     const parsed = manualSaleSchema.safeParse(await request.json());
 
     if (!parsed.success) {
-      return fail(400, "INVALID_MANUAL_SALE", "手動売上入力が不正です", parsed.error.flatten());
+      return fail(400, "INVALID_MANUAL_SALE", "手動売上の入力が不正です", parsed.error.flatten());
     }
 
     const result = await executeManualSale({
@@ -28,9 +28,9 @@ export async function POST(
     }
 
     if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") {
-      return fail(422, "INSUFFICIENT_STOCK", "売上数が在庫を超えています");
+      return fail(422, "INSUFFICIENT_STOCK", "在庫が不足しているため売上を登録できません");
     }
 
-    return fail(500, "MANUAL_SALE_FAILED", "手動売上登録に失敗しました", error);
+    return fail(500, "MANUAL_SALE_FAILED", "手動売上の登録に失敗しました", error);
   }
 }

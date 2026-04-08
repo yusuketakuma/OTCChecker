@@ -22,28 +22,27 @@ export async function POST(
       return fail(404, "LOT_NOT_FOUND", "ロットが見つかりません");
     }
 
-    if (lot.status === "DELETED") {
-      return fail(409, "LOT_DELETED", "削除済みロットは廃棄できません");
+    if (lot.status !== "ACTIVE") {
+      return fail(409, "LOT_NOT_ACTIVE", "有効ロットのみ廃棄できます");
     }
 
     if (lot.version !== parsed.data.version) {
       return fail(409, "STALE_VERSION", "最新のロット情報ではありません");
     }
 
-    if (lot.quantity < parsed.data.quantity) {
-      return fail(422, "INSUFFICIENT_STOCK", "廃棄数が在庫を超えています");
+    if (parsed.data.quantity > lot.quantity) {
+      return fail(422, "DISPOSAL_EXCEEDS_STOCK", "廃棄数が現在庫を超えています");
     }
 
     const nextQuantity = lot.quantity - parsed.data.quantity;
-    const status = nextQuantity === 0 ? "ARCHIVED" : "ACTIVE";
-
+    const nextStatus = nextQuantity === 0 ? "ARCHIVED" : "ACTIVE";
     const updated = await prisma.$transaction(async (tx) => {
       const result = await tx.inventoryLot.update({
         where: { id },
         data: {
           quantity: nextQuantity,
-          status,
-          archivedAt: status === "ARCHIVED" ? new Date() : null,
+          status: nextStatus,
+          archivedAt: nextStatus === "ARCHIVED" ? new Date() : null,
           version: { increment: 1 },
         },
       });
@@ -61,6 +60,6 @@ export async function POST(
 
     return ok(updated);
   } catch (error) {
-    return fail(500, "DISPOSAL_FAILED", "廃棄登録に失敗しました", error);
+    return fail(500, "LOT_DISPOSAL_FAILED", "廃棄登録に失敗しました", error);
   }
 }

@@ -13,40 +13,32 @@ export async function PUT(
     const parsed = unmatchedResolveSchema.safeParse(await request.json());
 
     if (!parsed.success) {
-      return fail(400, "INVALID_RESOLUTION", "解決内容が不正です", parsed.error.flatten());
+      return fail(400, "INVALID_UNMATCHED_RESOLVE", "未割当解決の入力が不正です", parsed.error.flatten());
     }
 
-    const settings =
-      parsed.data.action === "RECEIVE_AND_APPLY" ? await getSettings() : null;
-    const updated = await resolveUnmatchedSale({
+    const settings = await getSettings();
+    const result = await resolveUnmatchedSale({
       unmatchedId: id,
-      action: parsed.data.action,
-      resolutionNote: parsed.data.resolutionNote,
-      expiryDate: parsed.data.action === "RECEIVE_AND_APPLY" ? parsed.data.expiryDate : undefined,
-      receiptQuantity:
-        parsed.data.action === "RECEIVE_AND_APPLY" ? parsed.data.receiptQuantity : undefined,
-      productName:
-        parsed.data.action === "RECEIVE_AND_APPLY" ? parsed.data.productName : undefined,
-      spec: parsed.data.action === "RECEIVE_AND_APPLY" ? parsed.data.spec : undefined,
-      defaultAlertDays: settings?.defaultAlertDays,
+      defaultAlertDays: settings.defaultAlertDays,
+      ...parsed.data,
     });
 
-    return ok(updated);
+    return ok(result);
   } catch (error) {
     if (error instanceof Error && error.message === "UNMATCHED_NOT_FOUND") {
       return fail(404, "UNMATCHED_NOT_FOUND", "未割当データが見つかりません");
     }
 
     if (error instanceof Error && error.message === "UNMATCHED_ALREADY_RESOLVED") {
-      return fail(409, "UNMATCHED_ALREADY_RESOLVED", "この未割当データはすでに解決済みです");
+      return fail(409, "UNMATCHED_ALREADY_RESOLVED", "この未割当はすでに解決済みです");
     }
 
     if (error instanceof Error && error.message === "RECEIPT_INPUT_REQUIRED") {
-      return fail(400, "RECEIPT_INPUT_REQUIRED", "入荷期限日と入荷数量が必要です");
+      return fail(400, "RECEIPT_INPUT_REQUIRED", "入荷反映には期限日と入荷数量が必要です");
     }
 
     if (error instanceof Error && error.message === "JAN_CODE_REQUIRED") {
-      return fail(422, "JAN_CODE_REQUIRED", "JANコードがないため商品照合できません");
+      return fail(422, "JAN_CODE_REQUIRED", "未割当データに有効なJANコードがありません");
     }
 
     if (error instanceof Error && error.message === "PRODUCT_INPUT_REQUIRED") {
@@ -54,7 +46,7 @@ export async function PUT(
     }
 
     if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") {
-      return fail(422, "INSUFFICIENT_STOCK", "売上反映に必要な在庫がまだ不足しています");
+      return fail(422, "INSUFFICIENT_STOCK", "入荷後も売上反映に必要な在庫が不足しています");
     }
 
     return fail(500, "UNMATCHED_RESOLVE_FAILED", "未割当の解決に失敗しました", error);
