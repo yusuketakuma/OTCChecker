@@ -80,6 +80,7 @@ const saleDatePresets = [
 ] as const;
 
 const commonQuantityPresets = [1, 3, 5, 10] as const;
+const alertDayPresets = [30, 14, 7, 3, 0] as const;
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -428,6 +429,15 @@ export default function InventoryDetailPage() {
     };
   }, [product]);
 
+  function toggleAlertDay(day: number) {
+    const next = alertDaysInput.values.includes(day)
+      ? alertDaysInput.values.filter((value) => value !== day)
+      : [...alertDaysInput.values, day];
+
+    setEditAlertDays(next.length ? next.sort((a, b) => b - a).join(",") : "");
+    setMessage("");
+  }
+
   async function saveProduct() {
     if (!product) {
       return;
@@ -665,6 +675,27 @@ export default function InventoryDetailPage() {
               onChange={(event) => setEditAlertDays(event.target.value)}
               placeholder="30,7,0"
             />
+            <div className="flex flex-wrap gap-2">
+              {alertDayPresets.map((day) => {
+                const selected = alertDaysInput.values.includes(day);
+
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    disabled={!isOnline}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                      selected
+                        ? "bg-[var(--color-brand)] text-white"
+                        : "bg-slate-100 text-slate-700"
+                    }`}
+                    onClick={() => toggleAlertDay(day)}
+                  >
+                    {day === 0 ? "当日" : `${day}日前`}
+                  </button>
+                );
+              })}
+            </div>
             <p className={`text-sm ${alertDaysInput.error ? "text-[var(--color-danger)]" : "text-slate-500"}`}>
               {alertDaysInput.error || `保存時は ${alertDaysInput.normalizedText} に整えて反映します。全角カンマも使えます。`}
             </p>

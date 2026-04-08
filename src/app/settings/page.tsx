@@ -22,6 +22,8 @@ type BuildInfo = {
   deployUrl: string;
 };
 
+const alertDayPresets = [30, 14, 7, 3, 0] as const;
+
 export default function SettingsPage() {
   const isOnline = useOnlineStatus();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -68,6 +70,15 @@ export default function SettingsPage() {
     return () => mediaQuery.removeEventListener("change", syncInstalled);
   }, []);
 
+  function toggleAlertDay(day: number) {
+    const next = alertDaysInput.values.includes(day)
+      ? alertDaysInput.values.filter((value) => value !== day)
+      : [...alertDaysInput.values, day];
+
+    setAlertDays(next.length ? next.sort((a, b) => b - a).join(",") : "");
+    setMessage("");
+  }
+
   async function save() {
     if (!settings) {
       return;
@@ -104,6 +115,27 @@ export default function SettingsPage() {
         <CardTitle>既定アラート閾値</CardTitle>
         <CardDescription>新規 SKU にだけ適用されます。カンマ区切りで入力してください。</CardDescription>
         <Input disabled={!isOnline} value={alertDays} onChange={(event) => setAlertDays(event.target.value)} />
+        <div className="flex flex-wrap gap-2">
+          {alertDayPresets.map((day) => {
+            const selected = alertDaysInput.values.includes(day);
+
+            return (
+              <button
+                key={day}
+                type="button"
+                disabled={!isOnline}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                  selected
+                    ? "bg-[var(--color-brand)] text-white"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+                onClick={() => toggleAlertDay(day)}
+              >
+                {day === 0 ? "当日" : `${day}日前`}
+              </button>
+            );
+          })}
+        </div>
         <p className={`text-sm ${alertDaysInput.error ? "text-[var(--color-danger)]" : "text-slate-500"}`}>
           {alertDaysInput.error || `保存時は ${alertDaysInput.normalizedText} に整えて反映します。全角カンマも使えます。`}
         </p>
