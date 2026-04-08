@@ -16,13 +16,14 @@ import {
 import { type ImportRow, type PreviewRow, normalizeJanCode } from "@/lib/csv";
 import { getPrisma } from "@/lib/prisma";
 
-export type ProductInventorySummary = {
+export type InventoryListRow = {
+  lotId: string;
   productId: string;
   name: string;
   spec: string;
   janCode: string;
-  earliestExpiry: string | null;
-  totalQuantity: number;
+  expiryDate: string | null;
+  quantity: number;
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
@@ -50,7 +51,7 @@ function readAlertDays(value: Prisma.JsonValue | null | undefined) {
   );
 }
 
-export async function listProductSummaries(params: {
+export async function listInventoryRows(params: {
   search?: string;
   bucket?: string;
 }) {
@@ -60,10 +61,7 @@ export async function listProductSummaries(params: {
     prisma.product.findMany({
       where: search
         ? {
-            OR: [
-              { name: { contains: search } },
-              { janCode: { contains: search } },
-            ],
+            OR: [{ name: { contains: search } }, { janCode: { contains: search } }],
           }
         : undefined,
       orderBy: [{ createdAt: "desc" }],
@@ -73,10 +71,7 @@ export async function listProductSummaries(params: {
         status: InventoryLotStatus.ACTIVE,
         product: search
           ? {
-              OR: [
-                { name: { contains: search } },
-                { janCode: { contains: search } },
-              ],
+              OR: [{ name: { contains: search } }, { janCode: { contains: search } }],
             }
           : undefined,
       },
@@ -87,44 +82,44 @@ export async function listProductSummaries(params: {
     }),
   ]);
 
-  const lotsByProductId = lots.reduce<Map<string, typeof lots>>((map, lot) => {
-    const current = map.get(lot.productId) ?? [];
-    current.push(lot);
-    map.set(lot.productId, current);
-    return map;
-  }, new Map());
-
-  return products.map<ProductInventorySummary>((product) => {
-    const productLots = lotsByProductId.get(product.id) ?? [];
-    const earliestLot = productLots[0];
-    const totalQuantity = productLots.reduce((sum, lot) => sum + lot.quantity, 0);
-    let bucket: ProductInventorySummary["bucket"] = "outOfStock";
-
-    if (earliestLot) {
-      const diffDays = diffDaysFromToday(earliestLot.expiryDate);
+  const rows = [
+    ...lots.map<InventoryListRow>((lot) => {
+      const diffDays = diffDaysFromToday(lot.expiryDate);
       const expiryBucket = getExpiryBucket(diffDays);
 
-      if (expiryBucket === "expired") {
-        bucket = "expired";
-      } else if (expiryBucket === "today" || expiryBucket === "within7") {
-        bucket = "within7";
-      } else if (expiryBucket === "within30") {
-        bucket = "within30";
-      } else {
-        bucket = "safe";
-      }
-    }
+      return {
+        lotId: lot.id,
+        productId: lot.productId,
+        name: lot.product.name,
+        spec: lot.product.spec,
+        janCode: lot.product.janCode,
+        expiryDate: formatDateLabel(lot.expiryDate),
+        quantity: lot.quantity,
+        bucket:
+          expiryBucket === "expired"
+            ? "expired"
+            : expiryBucket === "today" || expiryBucket === "within7"
+              ? "within7"
+              : expiryBucket === "within30"
+                ? "within30"
+                : "safe",
+      };
+    }),
+    ...products
+      .filter((product) => !lots.some((lot) => lot.productId === product.id))
+      .map<InventoryListRow>((product) => ({
+        lotId: `empty-${product.id}`,
+        productId: product.id,
+        name: product.name,
+        spec: product.spec,
+        janCode: product.janCode,
+        expiryDate: null,
+        quantity: 0,
+        bucket: "outOfStock",
+      })),
+  ];
 
-    return {
-      productId: product.id,
-      name: product.name,
-      spec: product.spec,
-      janCode: product.janCode,
-      earliestExpiry: earliestLot ? formatDateLabel(earliestLot.expiryDate) : null,
-      totalQuantity,
-      bucket,
-    };
-  }).filter((item) => {
+  return rows.filter((item) => {
     const bucket = params.bucket ?? "all";
 
     if (bucket === "all") {

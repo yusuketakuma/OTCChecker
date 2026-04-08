@@ -10,15 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { fetchJson } from "@/lib/client";
-import { formatQuantity } from "@/lib/utils";
+import { formatLotNumber, formatQuantity } from "@/lib/utils";
 
-type ProductSummary = {
+type InventoryRow = {
+  lotId: string;
   productId: string;
   name: string;
   spec: string;
   janCode: string;
-  earliestExpiry: string | null;
-  totalQuantity: number;
+  expiryDate: string | null;
+  quantity: number;
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
@@ -32,7 +33,7 @@ const tabs = [
 export default function InventoryPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const [items, setItems] = useState<ProductSummary[]>([]);
+  const [items, setItems] = useState<InventoryRow[]>([]);
   const [query, setQuery] = useState(() => {
     if (typeof window === "undefined") {
       return "";
@@ -53,7 +54,7 @@ export default function InventoryPage() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchJson<ProductSummary[]>(
+    fetchJson<InventoryRow[]>(
       `/api/products?q=${encodeURIComponent(deferredQuery)}&bucket=${bucket}`,
       { signal: controller.signal },
     )
@@ -126,7 +127,7 @@ export default function InventoryPage() {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <Card className="space-y-3" key={item.productId}>
+            <Card className="space-y-3" key={item.lotId}>
               <Link href={`/inventory/${item.productId}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -158,9 +159,12 @@ export default function InventoryPage() {
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
+                  <p className="col-span-2">
+                    ロット番号: {item.bucket === "outOfStock" ? "未登録" : formatLotNumber(item.lotId)}
+                  </p>
                   <p>JAN: {item.janCode}</p>
-                  <p>合計在庫: {formatQuantity(item.totalQuantity)}個</p>
-                  <p className="col-span-2">最短期限: {item.earliestExpiry ?? "-"}</p>
+                  <p>在庫数: {formatQuantity(item.quantity)}個</p>
+                  <p className="col-span-2">期限: {item.expiryDate ?? "-"}</p>
                 </div>
               </Link>
               <div className="grid gap-2 sm:grid-cols-2">
