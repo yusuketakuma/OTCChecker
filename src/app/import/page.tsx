@@ -227,6 +227,7 @@ export default function ImportPage() {
   const [previewing, setPreviewing] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [bulkResolvingAction, setBulkResolvingAction] = useState<"MARK_RESOLVED" | "RECEIVE_AND_APPLY" | null>(null);
   const [unmatchedQuery, setUnmatchedQuery] = useState("");
   const [unmatchedReasonFilter, setUnmatchedReasonFilter] = useState<(typeof unmatchedReasonOptions)[number]["key"]>("all");
   const [bulkResolutionNote, setBulkResolutionNote] = useState("確認済み");
@@ -276,6 +277,17 @@ export default function ImportPage() {
         .some((value) => value?.toLowerCase().includes(query));
     });
   }, [unmatched, unmatchedQuery, unmatchedReasonFilter]);
+  const bulkResolvableRows = useMemo(
+    () => filteredUnmatched.filter((row) => rowValidations[row.id]?.canMarkResolved),
+    [filteredUnmatched, rowValidations],
+  );
+  const bulkReceivableRows = useMemo(
+    () =>
+      filteredUnmatched.filter(
+        (row) => row.reason !== "DUPLICATE_ROW" && rowValidations[row.id]?.canReceiveAndApply,
+      ),
+    [filteredUnmatched, rowValidations],
+  );
 
   function applyUnmatchedRows(rows: UnmatchedRow[]) {
     const storedDefaults = readStoredReceiptDefaults();
@@ -499,6 +511,67 @@ export default function ImportPage() {
     }
   }
 
+  async function resolveFilteredRows(action: "MARK_RESOLVED" | "RECEIVE_AND_APPLY") {
+    const targetRows = action === "MARK_RESOLVED" ? bulkResolvableRows : bulkReceivableRows;
+
+    if (!targetRows.length) {
+      setError(
+        action === "MARK_RESOLVED"
+          ? "一括解決できる未割当がありません。"
+          : "一括反映できる未割当がありません。",
+      );
+      setMessage("");
+      return;
+    }
+
+    setBulkResolvingAction(action);
+    setError("");
+    setMessage("");
+
+    let completed = 0;
+    let failed = 0;
+    let firstFailure = "";
+
+    try {
+      for (const row of targetRows) {
+        try {
+          if (action === "MARK_RESOLVED") {
+            await putJson(`/api/unmatched/${row.id}/resolve`, {
+              action,
+              resolutionNote: resolutionDrafts[row.id]?.trim(),
+            });
+          } else {
+            await putJson(`/api/unmatched/${row.id}/resolve`, {
+              action,
+              resolutionNote: resolutionDrafts[row.id]?.trim(),
+              expiryDate: expiryDateDrafts[row.id]?.trim(),
+              receiptQuantity: parsePositiveIntegerInput(receiptQuantityDrafts[row.id] ?? ""),
+              productName: row.matchedProduct ? undefined : productNameDrafts[row.id]?.trim(),
+              spec: row.matchedProduct ? undefined : specDrafts[row.id]?.trim(),
+            });
+          }
+
+          completed += 1;
+        } catch (cause) {
+          failed += 1;
+          if (!firstFailure) {
+            firstFailure = (cause as Error).message;
+          }
+        }
+      }
+
+      await loadUnmatched();
+      setMessage(
+        action === "MARK_RESOLVED"
+          ? `表示中の未割当を ${completed} 件解決済みにしました。`
+          : `表示中の未割当を ${completed} 件在庫へ反映しました。`,
+      );
+      setError(failed > 0 ? `${failed}件は処理できませんでした。${firstFailure}` : "");
+    } finally {
+      setBulkResolvingAction(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -715,18 +788,35 @@ export default function ImportPage() {
                   <p>検索や理由フィルタで表示中の行だけに反映します。</p>
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      disabled={!isOnline || !filteredUnmatched.length}
+                      disabled={!isOnline || !filteredUnmatched.length || bulkResolvingAction !== null}
                       variant="secondary"
                       onClick={applyRemainingQuantitiesToFilteredRows}
                     >
                       残数を一括セット
                     </Button>
                     <Button
-                      disabled={!isOnline || !filteredUnmatched.length}
+                      disabled={!isOnline || !filteredUnmatched.length || bulkResolvingAction !== null}
                       variant="secondary"
                       onClick={applyBulkDrafts}
                     >
                       表示中に一括入力
+                    </Button>
+                    <Button
+                      disabled={!isOnline || !bulkReceivableRows.length || bulkResolvingAction !== null}
+                      onClick={() => resolveFilteredRows("RECEIVE_AND_APPLY")}
+                    >
+                      {bulkResolvingAction === "RECEIVE_AND_APPLY"
+                        ? "一括反映中..."
+                        : `表示中を一括反映 (${bulkReceivableRows.length})`}
+                    </Button>
+                    <Button
+                      disabled={!isOnline || !bulkResolvableRows.length || bulkResolvingAction !== null}
+                      variant="secondary"
+                      onClick={() => resolveFilteredRows("MARK_RESOLVED")}
+                    >
+                      {bulkResolvingAction === "MARK_RESOLVED"
+                        ? "一括解決中..."
+                        : `メモのみで一括解決 (${bulkResolvableRows.length})`}
                     </Button>
                   </div>
                 </div>
