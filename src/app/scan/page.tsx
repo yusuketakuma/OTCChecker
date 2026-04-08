@@ -65,6 +65,11 @@ function ScanPageContent() {
   const [message, setMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastSubmittedDraft, setLastSubmittedDraft] = useState<{
+    janCode: string;
+    name: string;
+    spec: string;
+  } | null>(null);
   const [recentScans, setRecentScans] = useState<string[]>(() => {
     if (typeof window === "undefined") {
       return [];
@@ -289,6 +294,23 @@ function ScanPageContent() {
     };
   }, [isJanComplete, isOnline, normalizedJanCode]);
 
+  function restoreLastSubmittedDraft() {
+    if (!lastSubmittedDraft) {
+      return;
+    }
+
+    setJanCode(lastSubmittedDraft.janCode);
+    setName(lastSubmittedDraft.name);
+    setSpec(lastSubmittedDraft.spec);
+    setLookupState(
+      isOnline
+        ? { status: "pending", janCode: lastSubmittedDraft.janCode }
+        : { status: "idle", janCode: lastSubmittedDraft.janCode },
+    );
+    setMessage("");
+    setSubmitError("");
+  }
+
   async function submit() {
     if (parsedQuantity === null) {
       setSubmitError("数量は1以上の整数で入力してください。");
@@ -320,6 +342,11 @@ function ScanPageContent() {
         });
       }
 
+      setLastSubmittedDraft({
+        janCode: code,
+        name: product?.name ?? name,
+        spec: product?.spec ?? spec,
+      });
       pushRecentScan(code);
       setMessage(product ? "既存SKUへ入荷登録しました。" : "新規SKUを作成して入荷登録しました。");
       setJanCode("");
@@ -510,6 +537,11 @@ function ScanPageContent() {
         <Button className="w-full" disabled={!canSubmit} onClick={submit}>
           {isSubmitting ? "登録中..." : isLookupPending ? "JAN照会中..." : "登録する"}
         </Button>
+        {lastSubmittedDraft && !janCode ? (
+          <Button className="w-full" variant="secondary" disabled={isSubmitting} onClick={restoreLastSubmittedDraft}>
+            同じ商品でもう一件
+          </Button>
+        ) : null}
         {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
         {lookupError ? <p className="text-sm text-[var(--color-danger)]">{lookupError}</p> : null}
         {submitError ? <p className="text-sm text-[var(--color-danger)]">{submitError}</p> : null}
