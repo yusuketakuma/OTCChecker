@@ -20,7 +20,7 @@ type Lot = {
   expiryDate: string;
   quantity: number;
   initialQuantity: number;
-  status: string;
+  status: "ACTIVE" | "ARCHIVED" | "DELETED";
   version: number;
   salesRecords: Array<{
     id: string;
@@ -58,6 +58,216 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+type LotActionState = {
+  disabled: boolean;
+  helperText: string;
+};
+
+const lotStatusMeta: Record<
+  Lot["status"],
+  { label: string; tone: "neutral" | "danger" | "success"; description: string }
+> = {
+  ACTIVE: {
+    label: "販売対象",
+    tone: "success",
+    description: "販売・廃棄・調整の対象です。",
+  },
+  ARCHIVED: {
+    label: "アーカイブ済み",
+    tone: "neutral",
+    description: "通常在庫から外した履歴ロットです。売上・廃棄の対象外です。",
+  },
+  DELETED: {
+    label: "削除済み",
+    tone: "danger",
+    description: "削除済みロットです。",
+  },
+};
+
+function parseIntegerDraft(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed || !/^-?\d+$/.test(trimmed)) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function isLotDeleteBlocked(lot: Lot) {
+  return (
+    lot.salesRecords.length > 0 ||
+    lot.disposalRecords.length > 0 ||
+    lot.adjustmentRecords.length > 0
+  );
+}
+
+function getQuantityActionState(
+  lot: Lot,
+  draft: string,
+  reason: string,
+  isOnline: boolean,
+): LotActionState {
+  const nextQuantity = parseIntegerDraft(draft);
+
+  if (!isOnline) {
+    return { disabled: true, helperText: "オフライン中は数量更新できません。" };
+  }
+
+  if (nextQuantity === null || nextQuantity < 0) {
+    return { disabled: true, helperText: "数量は0以上の整数で入力してください。" };
+  }
+
+  if (!reason.trim()) {
+    return { disabled: true, helperText: "更新理由を入力してください。" };
+  }
+
+  if (nextQuantity === lot.quantity) {
+    return { disabled: true, helperText: "現在庫から変更がないため更新不要です。" };
+  }
+
+  if (lot.status === "ARCHIVED" && nextQuantity > 0) {
+    return {
+      disabled: false,
+      helperText: "アーカイブ済みロットを在庫へ戻す更新です。理由は履歴に残ります。",
+    };
+  }
+
+  if (nextQuantity === 0) {
+    return {
+      disabled: false,
+      helperText: "0個で更新すると、このロットはアーカイブ扱いになります。",
+    };
+  }
+
+  return {
+    disabled: false,
+    helperText: "数量を直接補正し、更新理由を履歴に記録します。",
+  };
+}
+
+function getAdjustActionState(
+  lot: Lot,
+  draft: string,
+  reason: string,
+  isOnline: boolean,
+): LotActionState {
+  const delta = parseIntegerDraft(draft);
+
+  if (!isOnline) {
+    return { disabled: true, helperText: "オフライン中は差分調整できません。" };
+  }
+
+  if (delta === null) {
+    return { disabled: true, helperText: "差分は整数で入力してください。" };
+  }
+
+  if (!reason.trim()) {
+    return { disabled: true, helperText: "差分調整の理由を入力してください。" };
+  }
+
+  if (delta === 0) {
+    return { disabled: true, helperText: "差分が0のため調整は不要です。" };
+  }
+
+  if (lot.quantity + delta < 0) {
+    return {
+      disabled: true,
+      helperText: "調整後の在庫が0未満になるため登録できません。",
+    };
+  }
+
+  if (lot.status === "ARCHIVED" && lot.quantity + delta > 0) {
+    return {
+      disabled: false,
+      helperText: "アーカイブ済みロットを在庫へ戻す差分調整です。",
+    };
+  }
+
+  if (lot.quantity + delta === 0) {
+    return {
+      disabled: false,
+      helperText: "在庫が0個になるため、このロットはアーカイブされます。",
+    };
+  }
+
+  return {
+    disabled: false,
+    helperText:
+      delta > 0 ? "プラス差分で在庫を補正します。" : "マイナス差分で在庫を補正します。",
+  };
+}
+
+function getDisposeActionState(
+  lot: Lot,
+  draft: string,
+  reason: string,
+  isOnline: boolean,
+): LotActionState {
+  const quantity = parseIntegerDraft(draft);
+
+  if (!isOnline) {
+    return { disabled: true, helperText: "オフライン中は廃棄登録できません。" };
+  }
+
+  if (lot.status !== "ACTIVE") {
+    return {
+      disabled: true,
+      helperText: "アーカイブ済みロットは廃棄登録できません。",
+    };
+  }
+
+  if (lot.quantity < 1) {
+    return { disabled: true, helperText: "在庫がないため廃棄登録できません。" };
+  }
+
+  if (quantity === null || quantity < 1) {
+    return { disabled: true, helperText: "廃棄数は1以上の整数で入力してください。" };
+  }
+
+  if (quantity > lot.quantity) {
+    return {
+      disabled: true,
+      helperText: `廃棄数は現在庫 ${lot.quantity} 個以内で入力してください。`,
+    };
+  }
+
+  if (!reason.trim()) {
+    return { disabled: true, helperText: "廃棄理由を入力してください。" };
+  }
+
+  if (quantity === lot.quantity) {
+    return {
+      disabled: false,
+      helperText: "全量廃棄すると、このロットはアーカイブされます。",
+    };
+  }
+
+  return {
+    disabled: false,
+    helperText: `1〜${lot.quantity}個まで廃棄登録できます。`,
+  };
+}
+
+function getDeleteActionState(lot: Lot, isOnline: boolean): LotActionState {
+  if (!isOnline) {
+    return { disabled: true, helperText: "オフライン中はロット削除できません。" };
+  }
+
+  if (isLotDeleteBlocked(lot)) {
+    return {
+      disabled: true,
+      helperText: "売上・廃棄・調整履歴があるロットは削除できません。",
+    };
+  }
+
+  return {
+    disabled: false,
+    helperText: "履歴のない誤登録ロットのみ削除できます。",
+  };
+}
+
 export default function InventoryDetailPage() {
   const params = useParams<{ productId: string }>();
   const productId = params.productId;
@@ -70,11 +280,11 @@ export default function InventoryDetailPage() {
   const [editName, setEditName] = useState("");
   const [editSpec, setEditSpec] = useState("");
   const [editAlertDays, setEditAlertDays] = useState("30,7,0");
-  const [qtyDrafts, setQtyDrafts] = useState<Record<string, number>>({});
+  const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
   const [reasonDrafts, setReasonDrafts] = useState<Record<string, string>>({});
-  const [adjustDrafts, setAdjustDrafts] = useState<Record<string, number>>({});
+  const [adjustDrafts, setAdjustDrafts] = useState<Record<string, string>>({});
   const [adjustReasons, setAdjustReasons] = useState<Record<string, string>>({});
-  const [disposeDrafts, setDisposeDrafts] = useState<Record<string, number>>({});
+  const [disposeDrafts, setDisposeDrafts] = useState<Record<string, string>>({});
   const [disposeReasons, setDisposeReasons] = useState<Record<string, string>>({});
   const [receiptExpiryDate, setReceiptExpiryDate] = useState("");
   const [receiptQuantity, setReceiptQuantity] = useState(1);
@@ -89,11 +299,11 @@ export default function InventoryDetailPage() {
       setEditName(detail.name);
       setEditSpec(detail.spec);
       setEditAlertDays(detail.alertDays.join(","));
-      setQtyDrafts(Object.fromEntries(detail.lots.map((lot) => [lot.id, lot.quantity])));
+      setQtyDrafts(Object.fromEntries(detail.lots.map((lot) => [lot.id, String(lot.quantity)])));
       setReasonDrafts(Object.fromEntries(detail.lots.map((lot) => [lot.id, "在庫修正"])));
-      setAdjustDrafts(Object.fromEntries(detail.lots.map((lot) => [lot.id, 0])));
+      setAdjustDrafts(Object.fromEntries(detail.lots.map((lot) => [lot.id, "0"])));
       setAdjustReasons(Object.fromEntries(detail.lots.map((lot) => [lot.id, "棚卸差異"])));
-      setDisposeDrafts(Object.fromEntries(detail.lots.map((lot) => [lot.id, 0])));
+      setDisposeDrafts(Object.fromEntries(detail.lots.map((lot) => [lot.id, ""])));
       setDisposeReasons(
         Object.fromEntries(detail.lots.map((lot) => [lot.id, "期限近接による廃棄"])),
       );
@@ -196,12 +406,26 @@ export default function InventoryDetailPage() {
   }
 
   async function updateLot(lot: Lot) {
+    const quantityAction = getQuantityActionState(
+      lot,
+      qtyDrafts[lot.id] ?? String(lot.quantity),
+      reasonDrafts[lot.id] ?? "",
+      isOnline,
+    );
+    const nextQuantity = parseIntegerDraft(qtyDrafts[lot.id] ?? "");
+
+    if (quantityAction.disabled || nextQuantity === null) {
+      setError(quantityAction.helperText);
+      setMessage("");
+      return;
+    }
+
     try {
       setError("");
       setMessage("");
       await putJson(`/api/lots/${lot.id}`, {
-        quantity: qtyDrafts[lot.id],
-        reason: reasonDrafts[lot.id],
+        quantity: nextQuantity,
+        reason: (reasonDrafts[lot.id] ?? "").trim(),
         version: lot.version,
       });
       setMessage("在庫数量を更新しました。");
@@ -212,12 +436,26 @@ export default function InventoryDetailPage() {
   }
 
   async function disposeLot(lot: Lot) {
+    const disposeAction = getDisposeActionState(
+      lot,
+      disposeDrafts[lot.id] ?? "",
+      disposeReasons[lot.id] ?? "",
+      isOnline,
+    );
+    const disposalQuantity = parseIntegerDraft(disposeDrafts[lot.id] ?? "");
+
+    if (disposeAction.disabled || disposalQuantity === null) {
+      setError(disposeAction.helperText);
+      setMessage("");
+      return;
+    }
+
     try {
       setError("");
       setMessage("");
       await postJson(`/api/lots/${lot.id}/dispose`, {
-        quantity: disposeDrafts[lot.id],
-        reason: disposeReasons[lot.id],
+        quantity: disposalQuantity,
+        reason: (disposeReasons[lot.id] ?? "").trim(),
         version: lot.version,
       });
       setMessage("廃棄を登録しました。");
@@ -228,12 +466,26 @@ export default function InventoryDetailPage() {
   }
 
   async function adjustLot(lot: Lot) {
+    const adjustAction = getAdjustActionState(
+      lot,
+      adjustDrafts[lot.id] ?? "0",
+      adjustReasons[lot.id] ?? "",
+      isOnline,
+    );
+    const delta = parseIntegerDraft(adjustDrafts[lot.id] ?? "");
+
+    if (adjustAction.disabled || delta === null) {
+      setError(adjustAction.helperText);
+      setMessage("");
+      return;
+    }
+
     try {
       setError("");
       setMessage("");
       await postJson(`/api/lots/${lot.id}/adjust`, {
-        delta: adjustDrafts[lot.id],
-        reason: adjustReasons[lot.id],
+        delta,
+        reason: (adjustReasons[lot.id] ?? "").trim(),
         version: lot.version,
       });
       setMessage("差分調整を登録しました。");
@@ -244,6 +496,14 @@ export default function InventoryDetailPage() {
   }
 
   async function deleteLot(lot: Lot) {
+    const deleteAction = getDeleteActionState(lot, isOnline);
+
+    if (deleteAction.disabled) {
+      setError(deleteAction.helperText);
+      setMessage("");
+      return;
+    }
+
     if (!window.confirm("このロットを削除しますか。履歴がある場合は削除できません。")) {
       return;
     }
@@ -411,137 +671,214 @@ export default function InventoryDetailPage() {
           <EmptyState title="ロットがありません" description="スキャン画面から入荷登録してください。" />
         ) : (
           <div className="space-y-3">
-            {product.lots.map((lot) => (
-              <Card className="space-y-4" key={lot.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>
-                    <CardDescription>
-                      初回 {lot.initialQuantity}個 / 現在 {lot.quantity}個
-                    </CardDescription>
-                  </div>
-                  <Badge tone={lot.status === "ACTIVE" ? "success" : "neutral"}>{lot.status}</Badge>
-                </div>
-                <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
-                  <FieldLabel>数量を上書き</FieldLabel>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <FieldLabel>現在庫</FieldLabel>
-                      <Input
-                        disabled={!isOnline}
-                        type="number"
-                        value={qtyDrafts[lot.id] ?? lot.quantity}
-                        onChange={(event) =>
-                          setQtyDrafts((current) => ({
-                            ...current,
-                            [lot.id]: Number(event.target.value),
-                          }))
-                        }
-                      />
+            {product.lots.map((lot) => {
+              const status = lotStatusMeta[lot.status];
+              const quantityAction = getQuantityActionState(
+                lot,
+                qtyDrafts[lot.id] ?? String(lot.quantity),
+                reasonDrafts[lot.id] ?? "",
+                isOnline,
+              );
+              const adjustAction = getAdjustActionState(
+                lot,
+                adjustDrafts[lot.id] ?? "0",
+                adjustReasons[lot.id] ?? "",
+                isOnline,
+              );
+              const disposeAction = getDisposeActionState(
+                lot,
+                disposeDrafts[lot.id] ?? "",
+                disposeReasons[lot.id] ?? "",
+                isOnline,
+              );
+              const deleteAction = getDeleteActionState(lot, isOnline);
+              const disposeInputsDisabled =
+                !isOnline || lot.status !== "ACTIVE" || lot.quantity < 1;
+
+              return (
+                <Card className="space-y-4" key={lot.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>
+                      <CardDescription>
+                        初回 {lot.initialQuantity}個 / 現在 {lot.quantity}個
+                      </CardDescription>
                     </div>
-                    <div className="space-y-2">
-                      <FieldLabel>理由</FieldLabel>
-                      <Input
-                        disabled={!isOnline}
-                        value={reasonDrafts[lot.id] ?? ""}
-                        onChange={(event) =>
-                          setReasonDrafts((current) => ({
-                            ...current,
-                            [lot.id]: event.target.value,
-                          }))
-                        }
-                        placeholder="修正理由"
-                      />
+                    <div className="space-y-2 text-right">
+                      <Badge tone={status.tone}>{status.label}</Badge>
+                      <p className="text-xs leading-5 text-slate-500">{status.description}</p>
                     </div>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Button className="w-full" disabled={!isOnline} variant="secondary" onClick={() => updateLot(lot)}>
-                      数量更新
+                  <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                    <FieldLabel>数量を上書き</FieldLabel>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <FieldLabel>現在庫</FieldLabel>
+                        <Input
+                          disabled={!isOnline}
+                          inputMode="numeric"
+                          min={0}
+                          step={1}
+                          type="number"
+                          value={qtyDrafts[lot.id] ?? String(lot.quantity)}
+                          onChange={(event) =>
+                            setQtyDrafts((current) => ({
+                              ...current,
+                              [lot.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <FieldLabel>理由</FieldLabel>
+                        <Input
+                          disabled={!isOnline}
+                          value={reasonDrafts[lot.id] ?? ""}
+                          onChange={(event) =>
+                            setReasonDrafts((current) => ({
+                              ...current,
+                              [lot.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="修正理由"
+                        />
+                      </div>
+                    </div>
+                    <p
+                      className={`text-xs leading-5 ${
+                        quantityAction.disabled ? "text-amber-700" : "text-slate-500"
+                      }`}
+                    >
+                      {quantityAction.helperText}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        className="w-full"
+                        disabled={quantityAction.disabled}
+                        variant="secondary"
+                        onClick={() => updateLot(lot)}
+                      >
+                        数量更新
+                      </Button>
+                      <Button
+                        className="w-full"
+                        disabled={deleteAction.disabled}
+                        variant="danger"
+                        onClick={() => deleteLot(lot)}
+                      >
+                        ロット削除
+                      </Button>
+                    </div>
+                    <p
+                      className={`text-xs leading-5 ${
+                        deleteAction.disabled ? "text-amber-700" : "text-slate-500"
+                      }`}
+                    >
+                      {deleteAction.helperText}
+                    </p>
+                  </div>
+                  <div className="space-y-3 border-t border-slate-100 pt-4">
+                    <FieldLabel>棚卸差異を調整</FieldLabel>
+                    <div className="grid gap-3 sm:grid-cols-[112px_1fr]">
+                      <div className="space-y-2">
+                        <FieldLabel>差分</FieldLabel>
+                        <Input
+                          disabled={!isOnline}
+                          step={1}
+                          type="number"
+                          value={adjustDrafts[lot.id] ?? "0"}
+                          onChange={(event) =>
+                            setAdjustDrafts((current) => ({
+                              ...current,
+                              [lot.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <FieldLabel>理由</FieldLabel>
+                        <Input
+                          disabled={!isOnline}
+                          value={adjustReasons[lot.id] ?? ""}
+                          onChange={(event) =>
+                            setAdjustReasons((current) => ({
+                              ...current,
+                              [lot.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="差分調整理由"
+                        />
+                      </div>
+                    </div>
+                    <p
+                      className={`text-xs leading-5 ${
+                        adjustAction.disabled ? "text-amber-700" : "text-slate-500"
+                      }`}
+                    >
+                      {adjustAction.helperText}
+                    </p>
+                    <Button
+                      className="w-full"
+                      disabled={adjustAction.disabled}
+                      variant="secondary"
+                      onClick={() => adjustLot(lot)}
+                    >
+                      差分調整
                     </Button>
-                    <Button className="w-full" disabled={!isOnline} variant="danger" onClick={() => deleteLot(lot)}>
-                      ロット削除
+                  </div>
+                  <div className="space-y-3 border-t border-slate-100 pt-4">
+                    <FieldLabel>廃棄を登録</FieldLabel>
+                    <div className="grid gap-3 sm:grid-cols-[112px_1fr]">
+                      <div className="space-y-2">
+                        <FieldLabel>廃棄数</FieldLabel>
+                        <Input
+                          disabled={disposeInputsDisabled}
+                          inputMode="numeric"
+                          min={1}
+                          step={1}
+                          type="number"
+                          value={disposeDrafts[lot.id] ?? ""}
+                          onChange={(event) =>
+                            setDisposeDrafts((current) => ({
+                              ...current,
+                              [lot.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <FieldLabel>理由</FieldLabel>
+                        <Input
+                          disabled={disposeInputsDisabled}
+                          value={disposeReasons[lot.id] ?? ""}
+                          onChange={(event) =>
+                            setDisposeReasons((current) => ({
+                              ...current,
+                              [lot.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="廃棄理由"
+                        />
+                      </div>
+                    </div>
+                    <p
+                      className={`text-xs leading-5 ${
+                        disposeAction.disabled ? "text-amber-700" : "text-slate-500"
+                      }`}
+                    >
+                      {disposeAction.helperText}
+                    </p>
+                    <Button
+                      className="w-full"
+                      disabled={disposeAction.disabled}
+                      onClick={() => disposeLot(lot)}
+                    >
+                      廃棄登録
                     </Button>
                   </div>
-                </div>
-                <div className="space-y-3 border-t border-slate-100 pt-4">
-                  <FieldLabel>棚卸差異を調整</FieldLabel>
-                  <div className="grid gap-3 sm:grid-cols-[112px_1fr]">
-                    <div className="space-y-2">
-                      <FieldLabel>差分</FieldLabel>
-                      <Input
-                        disabled={!isOnline}
-                        type="number"
-                        value={adjustDrafts[lot.id] ?? 0}
-                        onChange={(event) =>
-                          setAdjustDrafts((current) => ({
-                            ...current,
-                            [lot.id]: Number(event.target.value),
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <FieldLabel>理由</FieldLabel>
-                      <Input
-                        disabled={!isOnline}
-                        value={adjustReasons[lot.id] ?? ""}
-                        onChange={(event) =>
-                          setAdjustReasons((current) => ({
-                            ...current,
-                            [lot.id]: event.target.value,
-                          }))
-                        }
-                        placeholder="差分調整理由"
-                      />
-                    </div>
-                  </div>
-                  <Button
-                    className="w-full"
-                    disabled={!isOnline || !adjustDrafts[lot.id]}
-                    variant="secondary"
-                    onClick={() => adjustLot(lot)}
-                  >
-                    差分調整
-                  </Button>
-                </div>
-                <div className="space-y-3 border-t border-slate-100 pt-4">
-                  <FieldLabel>廃棄を登録</FieldLabel>
-                  <div className="grid gap-3 sm:grid-cols-[112px_1fr]">
-                    <div className="space-y-2">
-                      <FieldLabel>廃棄数</FieldLabel>
-                      <Input
-                        disabled={!isOnline}
-                        type="number"
-                        value={disposeDrafts[lot.id] ?? 0}
-                        onChange={(event) =>
-                          setDisposeDrafts((current) => ({
-                            ...current,
-                            [lot.id]: Number(event.target.value),
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <FieldLabel>理由</FieldLabel>
-                      <Input
-                        disabled={!isOnline}
-                        value={disposeReasons[lot.id] ?? ""}
-                        onChange={(event) =>
-                          setDisposeReasons((current) => ({
-                            ...current,
-                            [lot.id]: event.target.value,
-                          }))
-                        }
-                        placeholder="廃棄理由"
-                      />
-                    </div>
-                  </div>
-                  <Button className="w-full" disabled={!isOnline} onClick={() => disposeLot(lot)}>
-                    廃棄登録
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </section>
