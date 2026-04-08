@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/app/empty-state";
@@ -756,13 +757,44 @@ export default function ImportPage() {
                         <p>残数: {row.remainingQuantity}</p>
                       </div>
                       {row.matchedProduct ? (
-                        <div className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900">
-                          <p className="font-medium">既存商品候補</p>
-                          <p className="mt-1">
-                            {row.matchedProduct.name} / {row.matchedProduct.spec}
-                          </p>
+                        <div className="space-y-3 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900">
+                          <div>
+                            <p className="font-medium">既存商品候補</p>
+                            <p className="mt-1">
+                              {row.matchedProduct.name} / {row.matchedProduct.spec}
+                            </p>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <Link
+                              className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99]"
+                              href={`/inventory/${row.matchedProduct.id}`}
+                            >
+                              在庫詳細を見る
+                            </Link>
+                            <Link
+                              className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
+                              href={`/scan?jan=${encodeURIComponent(row.matchedProduct.janCode)}&name=${encodeURIComponent(row.matchedProduct.name)}&spec=${encodeURIComponent(row.matchedProduct.spec)}&quantity=${encodeURIComponent(String(row.remainingQuantity))}`}
+                            >
+                              この商品で入荷登録
+                            </Link>
+                          </div>
                         </div>
-                      ) : null}
+                      ) : (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <Link
+                            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                            href={`/products?q=${encodeURIComponent(row.janCode ?? row.rawProductName)}`}
+                          >
+                            商品管理で探す
+                          </Link>
+                          <Link
+                            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
+                            href={`/scan?jan=${encodeURIComponent(row.janCode ?? "")}&name=${encodeURIComponent(row.rawProductName ?? "")}&quantity=${encodeURIComponent(String(row.remainingQuantity))}`}
+                          >
+                            新規商品として登録
+                          </Link>
+                        </div>
+                      )}
                       {row.reason !== "DUPLICATE_ROW" ? (
                         <div className="space-y-3">
                           {!row.matchedProduct ? (
