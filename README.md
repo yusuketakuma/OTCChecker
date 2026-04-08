@@ -35,6 +35,12 @@ cp .dev.vars.example .dev.vars
 npm run cf:preview
 ```
 
+GitHub `main` への push で本番デプロイが走る前提です。反映確認は次で行えます。
+
+```bash
+npm run verify:deploy
+```
+
 ## 主な画面
 
 - `/` ダッシュボード
@@ -77,10 +83,19 @@ npm run build
 
 ## Cloudflare デプロイ
 
+通常運用:
+
+1. `main` に push
+2. 自動デプロイを待つ
+3. `npm run verify:deploy` で `https://otcchecker.phcs.workers.dev/` の反映を確認
+
+手動デプロイが必要な場合のみ、次を使います。
+
 ```bash
 npx wrangler login
 npx wrangler d1 create otc-checker-db
 npm run cf:deploy
+npm run verify:deploy
 ```
 
 Cloudflare 向け設定ファイル:

@@ -13,9 +13,18 @@ type Settings = {
   defaultAlertDays: number[];
 };
 
+type BuildInfo = {
+  appName: string;
+  appVersion: string;
+  gitSha: string;
+  builtAt: string;
+  deployUrl: string;
+};
+
 export default function SettingsPage() {
   const isOnline = useOnlineStatus();
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
   const [alertDays, setAlertDays] = useState("30,7,0");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -27,6 +36,14 @@ export default function SettingsPage() {
         setAlertDays(data.defaultAlertDays.join(","));
       })
       .catch((cause) => setError(cause.message));
+  }, []);
+
+  useEffect(() => {
+    fetchJson<BuildInfo>("/api/version")
+      .then(setBuildInfo)
+      .catch(() => {
+        // Keep settings usable even if version metadata cannot be loaded.
+      });
   }, []);
 
   async function save() {
@@ -89,6 +106,29 @@ export default function SettingsPage() {
             オフライン中は設定変更を停止しています。
           </p>
         ) : null}
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>稼働バージョン</CardTitle>
+        <CardDescription>本番反映の確認に使う情報です。</CardDescription>
+        {buildInfo ? (
+          <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+            <p>アプリ名: {buildInfo.appName}</p>
+            <p className="mt-2">バージョン: {buildInfo.appVersion}</p>
+            <p className="mt-2">コミット: {buildInfo.gitSha}</p>
+            <p className="mt-2">ビルド時刻: {buildInfo.builtAt || "未設定"}</p>
+            <a
+              className="mt-3 inline-block font-medium text-[var(--color-brand)]"
+              href={buildInfo.deployUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              本番 URL を開く
+            </a>
+          </div>
+        ) : (
+          <CardDescription>バージョン情報を取得中です。</CardDescription>
+        )}
       </Card>
 
       <Card className="space-y-3">
