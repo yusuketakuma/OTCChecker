@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, postJson } from "@/lib/client";
 import { normalizeJanCode } from "@/lib/csv";
+import { addDaysToDateKey, todayJstKey } from "@/lib/date";
 
 type ProductLookup = {
   id: string;
@@ -29,6 +30,12 @@ type LookupState =
 
 const recentScanStorageKey = "otc-checker:recent-scans";
 const receiptDefaultsStorageKey = "otc-checker:scan-receipt-defaults";
+const expiryPresets = [
+  { label: "今日", days: 0 },
+  { label: "+30日", days: 30 },
+  { label: "+90日", days: 90 },
+  { label: "+180日", days: 180 },
+] as const;
 
 function readStoredReceiptDefaults() {
   if (typeof window === "undefined") {
@@ -351,12 +358,31 @@ export default function ScanPage() {
             onChange={(event) => setSpec(event.target.value)}
             placeholder="規格"
           />
-          <Input
-            disabled={!isOnline || isSubmitting}
-            type="date"
-            value={expiryDate}
-            onChange={(event) => setExpiryDate(event.target.value)}
-          />
+          <div className="space-y-2">
+            <Input
+              disabled={!isOnline || isSubmitting}
+              type="date"
+              value={expiryDate}
+              onChange={(event) => setExpiryDate(event.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              {expiryPresets.map((preset) => {
+                const nextDate = addDaysToDateKey(todayJstKey(), preset.days);
+
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    disabled={!isOnline || isSubmitting}
+                    className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                    onClick={() => setExpiryDate(nextDate)}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             <Button
               disabled={!isOnline || isSubmitting}

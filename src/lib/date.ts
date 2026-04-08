@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 export const JST_TIME_ZONE = "Asia/Tokyo";
@@ -23,6 +23,10 @@ export function formatDateLabel(date: Date | string) {
 export function formatDateTimeLabel(date: Date | string) {
   const value = typeof date === "string" ? parseISO(date) : date;
   return formatInTimeZone(value, JST_TIME_ZONE, "yyyy/MM/dd HH:mm");
+}
+
+export function addDaysToDateKey(dateKey: string, days: number) {
+  return toDateKey(addDays(parseDateOnly(dateKey), days));
 }
 
 export function diffDaysFromToday(date: Date | string, today = todayJstKey()) {
