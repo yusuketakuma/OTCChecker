@@ -70,6 +70,8 @@ function InventoryPageContent({
   const [bucket, setBucket] = useState<InventoryTabKey>(initialBucket);
   const [error, setError] = useState("");
   const deferredQuery = useDeferredValue(query);
+  const activeQuery = query.trim();
+  const hasActiveFilters = Boolean(activeQuery) || bucket !== "all";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -118,13 +120,20 @@ function InventoryPageContent({
       />
 
       <Card className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle>検索と絞り込み</CardTitle>
+            <CardDescription>商品名、規格、JANから最短期限順で探せます。</CardDescription>
+          </div>
+          <Badge tone="neutral">{items.length}件</Badge>
+        </div>
         <div className="space-y-3">
           <div className="space-y-2">
             <FormLabel htmlFor="inventory-search">在庫を検索</FormLabel>
             <Input
               aria-label="在庫を検索"
               id="inventory-search"
-              placeholder="商品名・JANコード"
+              placeholder="商品名・規格・JANコード"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -155,15 +164,37 @@ function InventoryPageContent({
             </button>
           ))}
         </div>
-        {bucket !== "all" ? (
-          <button
-            type="button"
-            className="inline-flex h-10 items-center justify-center rounded-full bg-slate-100 px-4 text-sm font-medium text-slate-700 transition active:scale-[0.99]"
-            onClick={() => setBucket("all")}
-          >
-            絞り込みを解除
-          </button>
-        ) : null}
+        {hasActiveFilters ? (
+          <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+              <span className="font-medium text-[var(--color-text)]">適用中条件</span>
+              {activeQuery ? (
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-medium ring-1 ring-slate-200">
+                  検索: {activeQuery}
+                </span>
+              ) : null}
+              {bucket !== "all" ? (
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-medium ring-1 ring-slate-200">
+                  期限: {tabs.find((tab) => tab.key === bucket)?.label}
+                </span>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition active:scale-[0.99]"
+              onClick={() => {
+                setQuery("");
+                setBucket("all");
+              }}
+            >
+              条件をリセット
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            全件表示中です。期限タブや検索で対象を絞り込めます。
+          </p>
+        )}
       </Card>
 
       {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
