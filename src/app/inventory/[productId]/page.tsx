@@ -13,6 +13,7 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, postJson, putJson } from "@/lib/client";
 import {
   addDaysToDateKey,
+  diffDaysFromToday,
   formatDateLabel,
   formatDateTimeLabel,
   todayJstKey,
@@ -387,11 +388,29 @@ export default function InventoryDetailPage() {
         .reduce((sum, lot) => sum + lot.quantity, 0) ?? 0,
     [product],
   );
+  const saleableLots = useMemo(
+    () =>
+      product?.lots.filter(
+        (lot) => lot.status === "ACTIVE" && diffDaysFromToday(lot.expiryDate) >= 0,
+      ) ?? [],
+    [product],
+  );
+  const expiredActiveQuantity = useMemo(
+    () =>
+      product?.lots
+        .filter((lot) => lot.status === "ACTIVE" && diffDaysFromToday(lot.expiryDate) < 0)
+        .reduce((sum, lot) => sum + lot.quantity, 0) ?? 0,
+    [product],
+  );
+  const saleableQuantity = useMemo(
+    () => saleableLots.reduce((sum, lot) => sum + lot.quantity, 0),
+    [saleableLots],
+  );
   const saleRemainingQuantity =
     parsedSaleQuantity === null
-      ? totalActiveQuantity
-      : Math.max(totalActiveQuantity - parsedSaleQuantity, 0);
-  const saleExceedsStock = parsedSaleQuantity !== null && parsedSaleQuantity > totalActiveQuantity;
+      ? saleableQuantity
+      : Math.max(saleableQuantity - parsedSaleQuantity, 0);
+  const saleExceedsStock = parsedSaleQuantity !== null && parsedSaleQuantity > saleableQuantity;
   const salePreview = useMemo(
     () => buildSalePreview(product?.lots ?? [], parsedSaleQuantity),
     [parsedSaleQuantity, product?.lots],
@@ -793,7 +812,7 @@ export default function InventoryDetailPage() {
     }
 
     if (saleExceedsStock) {
-      setError(`現在庫 ${totalActiveQuantity} 個を超えるため売上登録できません。`);
+      setError(`販売可能在庫 ${saleableQuantity} 個を超えるため売上登録できません。`);
       setMessage("");
       return;
     }
@@ -964,11 +983,16 @@ export default function InventoryDetailPage() {
         <CardTitle>手動売上登録</CardTitle>
         <CardDescription>CSV を待たずに、その場の販売や補正売上を FIFO で反映します。</CardDescription>
         <div className="rounded-2xl bg-slate-50/90 p-3 text-sm text-slate-700">
-          <p>現在の販売可能在庫: {totalActiveQuantity}個</p>
+          <p>現在の販売可能在庫: {saleableQuantity}個</p>
           <p>今回の売上後の見込み在庫: {saleRemainingQuantity}個</p>
+          {expiredActiveQuantity > 0 ? (
+            <p className="mt-2 text-amber-700">
+              期限切れ在庫 {expiredActiveQuantity} 個は手動売上の対象外です。先に廃棄登録してください。
+            </p>
+          ) : null}
           {saleExceedsStock ? (
             <p className="mt-2 text-[var(--color-danger)]">
-              現在庫を超える数量です。数量を減らしてから登録してください。
+              販売可能在庫を超える数量です。数量を減らしてから登録してください。
             </p>
           ) : null}
         </div>
@@ -1055,11 +1079,11 @@ export default function InventoryDetailPage() {
           </div>
           <Button
             className="w-full sm:col-span-2"
-            disabled={!isOnline || !saleDate || selling || parsedSaleQuantity === null || totalActiveQuantity === 0 || saleExceedsStock}
+            disabled={!isOnline || !saleDate || selling || parsedSaleQuantity === null || saleableQuantity === 0 || saleExceedsStock}
             variant="secondary"
             onClick={recordManualSale}
           >
-            {selling ? "登録中..." : totalActiveQuantity === 0 ? "在庫がないため登録不可" : "売上登録"}
+            {selling ? "登録中..." : saleableQuantity === 0 ? "販売可能在庫がないため登録不可" : "売上登録"}
           </Button>
         </div>
       </Card>
