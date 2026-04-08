@@ -66,6 +66,7 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
   const [quantity, setQuantity] = useState("1");
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteProductId, setPendingDeleteProductId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -167,10 +168,6 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
       return;
     }
 
-    if (!window.confirm(`「${item.name}」を削除しますか。未入荷の商品だけ削除できます。`)) {
-      return;
-    }
-
     try {
       setDeletingId(item.productId);
       setError("");
@@ -179,6 +176,7 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
         method: "DELETE",
       });
       setMessage("商品マスタを削除しました。");
+      setPendingDeleteProductId(null);
       await loadProducts(query.trim());
     } catch (cause) {
       setError((cause as Error).message);
@@ -304,7 +302,10 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
         />
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
+          {items.map((item) => {
+            const deleteConfirmOpen = pendingDeleteProductId === item.productId;
+
+            return (
             <Card className="space-y-3" key={item.productId}>
               <Link
                 className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
@@ -365,15 +366,48 @@ function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
                   <button
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 transition active:scale-[0.99] sm:col-span-2"
                     disabled={deletingId === item.productId}
-                    onClick={() => void deleteProduct(item)}
+                    onClick={() =>
+                      setPendingDeleteProductId((current) =>
+                        current === item.productId ? null : item.productId,
+                      )
+                    }
                     type="button"
                   >
-                    {deletingId === item.productId ? "削除中..." : "商品を削除"}
+                    {deletingId === item.productId
+                      ? "削除中..."
+                      : deleteConfirmOpen
+                        ? "削除確認を閉じる"
+                        : "商品を削除"}
                   </button>
                 ) : null}
               </div>
+              {deleteConfirmOpen ? (
+                <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-3">
+                  <p className="text-sm text-rose-900">
+                    「{item.name}」を削除します。未入荷の商品だけ削除できます。
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button
+                      className="w-full"
+                      disabled={deletingId === item.productId}
+                      variant="danger"
+                      onClick={() => void deleteProduct(item)}
+                    >
+                      {deletingId === item.productId ? "削除中..." : "この商品を削除する"}
+                    </Button>
+                    <Button
+                      className="w-full"
+                      disabled={deletingId === item.productId}
+                      variant="secondary"
+                      onClick={() => setPendingDeleteProductId(null)}
+                    >
+                      キャンセル
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </Card>
-          ))}
+          );})}
         </div>
       )}
     </div>
