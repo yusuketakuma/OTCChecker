@@ -39,6 +39,8 @@ export default function ProductsPage() {
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
   const [janCode, setJanCode] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -95,13 +97,21 @@ export default function ProductsPage() {
         name,
         spec,
         janCode,
+        initialLot: expiryDate
+          ? {
+              expiryDate,
+              quantity,
+            }
+          : undefined,
       });
 
       setName("");
       setSpec("");
       setJanCode("");
+      setExpiryDate("");
+      setQuantity(1);
       setQuery("");
-      setMessage("商品マスタを登録しました。");
+      setMessage(expiryDate ? "商品と初回ロットを登録しました。" : "商品マスタを登録しました。");
       await loadProducts("");
     } catch (cause) {
       setError((cause as Error).message);
@@ -131,7 +141,7 @@ export default function ProductsPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <CardTitle>新規商品を追加</CardTitle>
-            <CardDescription>入荷前でも商品マスタだけ先に作成できます。</CardDescription>
+            <CardDescription>商品だけ先に作るか、期限日と数量を入れて初回ロットまで登録できます。</CardDescription>
           </div>
           <Badge tone="neutral">{items.length}件</Badge>
         </div>
@@ -139,13 +149,27 @@ export default function ProductsPage() {
           <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="商品名" />
           <Input value={spec} onChange={(event) => setSpec(event.target.value)} placeholder="規格" />
           <Input value={janCode} onChange={(event) => setJanCode(event.target.value)} placeholder="JANコード" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              type="date"
+              value={expiryDate}
+              onChange={(event) => setExpiryDate(event.target.value)}
+            />
+            <Input
+              min={1}
+              type="number"
+              value={quantity}
+              onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
+              placeholder="初回数量"
+            />
+          </div>
         </div>
         <Button
           className="w-full"
           disabled={creating || !name.trim() || !spec.trim() || !janCode.trim()}
           onClick={createProduct}
         >
-          {creating ? "登録中..." : "商品マスタを追加"}
+          {creating ? "登録中..." : expiryDate ? "商品と初回ロットを追加" : "商品マスタを追加"}
         </Button>
         {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
         {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}

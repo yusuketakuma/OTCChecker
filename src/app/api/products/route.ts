@@ -2,6 +2,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
+import { parseDateOnly } from "@/lib/date";
 import { listProductMasters, listProductSummaries } from "@/lib/inventory";
 import { getPrisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
@@ -37,13 +38,36 @@ export async function POST(request: Request) {
     }
 
     const settings = await getSettings();
-    const product = await prisma.product.create({
-      data: {
-        name: parsed.data.name,
-        spec: parsed.data.spec,
-        janCode: parsed.data.janCode,
-        alertDays: (parsed.data.alertDays ?? settings.defaultAlertDays) as Prisma.InputJsonValue,
-      },
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: {
+          name: parsed.data.name,
+          spec: parsed.data.spec,
+          janCode: parsed.data.janCode,
+          alertDays: (parsed.data.alertDays ?? settings.defaultAlertDays) as Prisma.InputJsonValue,
+        },
+      });
+
+      if (parsed.data.initialLot) {
+        const expiryDate = parseDateOnly(parsed.data.initialLot.expiryDate);
+        const lot = await tx.inventoryLot.create({
+          data: {
+            productId: created.id,
+            expiryDate,
+            quantity: parsed.data.initialLot.quantity,
+            initialQuantity: parsed.data.initialLot.quantity,
+          },
+        });
+
+        await tx.receiptRecord.create({
+          data: {
+            lotId: lot.id,
+            quantity: parsed.data.initialLot.quantity,
+          },
+        });
+      }
+
+      return created;
     });
 
     return ok(product);

@@ -23,7 +23,7 @@ export type ProductInventorySummary = {
   janCode: string;
   earliestExpiry: string | null;
   totalQuantity: number;
-  bucket: "expired" | "within7" | "within30" | "safe";
+  bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 export type ProductMasterSummary = {
@@ -56,10 +56,9 @@ export async function listProductSummaries(params: {
 }) {
   const prisma = await getPrisma();
   const search = params.search?.trim();
-  const lots = await prisma.inventoryLot.findMany({
-    where: {
-      status: InventoryLotStatus.ACTIVE,
-      product: search
+  const [products, lots] = await Promise.all([
+    prisma.product.findMany({
+      where: search
         ? {
             OR: [
               { name: { contains: search } },
@@ -67,48 +66,65 @@ export async function listProductSummaries(params: {
             ],
           }
         : undefined,
-    },
-    include: {
-      product: true,
-    },
-    orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-  });
+      orderBy: [{ createdAt: "desc" }],
+    }),
+    prisma.inventoryLot.findMany({
+      where: {
+        status: InventoryLotStatus.ACTIVE,
+        product: search
+          ? {
+              OR: [
+                { name: { contains: search } },
+                { janCode: { contains: search } },
+              ],
+            }
+          : undefined,
+      },
+      include: {
+        product: true,
+      },
+      orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    }),
+  ]);
 
-  const map = new Map<string, ProductInventorySummary>();
+  const lotsByProductId = lots.reduce<Map<string, typeof lots>>((map, lot) => {
+    const current = map.get(lot.productId) ?? [];
+    current.push(lot);
+    map.set(lot.productId, current);
+    return map;
+  }, new Map());
 
-  for (const lot of lots) {
-    const diffDays = diffDaysFromToday(lot.expiryDate);
-    const bucket = getExpiryBucket(diffDays);
-    const summary = map.get(lot.productId) ?? {
-      productId: lot.productId,
-      name: lot.product.name,
-      spec: lot.product.spec,
-      janCode: lot.product.janCode,
-      earliestExpiry: null,
-      totalQuantity: 0,
-      bucket: bucket === "today" ? "within7" : bucket,
-    };
+  return products.map<ProductInventorySummary>((product) => {
+    const productLots = lotsByProductId.get(product.id) ?? [];
+    const earliestLot = productLots[0];
+    const totalQuantity = productLots.reduce((sum, lot) => sum + lot.quantity, 0);
+    let bucket: ProductInventorySummary["bucket"] = "outOfStock";
 
-    summary.totalQuantity += lot.quantity;
+    if (earliestLot) {
+      const diffDays = diffDaysFromToday(earliestLot.expiryDate);
+      const expiryBucket = getExpiryBucket(diffDays);
 
-    if (!summary.earliestExpiry) {
-      summary.earliestExpiry = formatDateLabel(lot.expiryDate);
-    }
-
-    if (bucket === "expired") {
-      summary.bucket = "expired";
-    } else if (bucket === "today" || bucket === "within7") {
-      if (summary.bucket !== "expired") {
-        summary.bucket = "within7";
+      if (expiryBucket === "expired") {
+        bucket = "expired";
+      } else if (expiryBucket === "today" || expiryBucket === "within7") {
+        bucket = "within7";
+      } else if (expiryBucket === "within30") {
+        bucket = "within30";
+      } else {
+        bucket = "safe";
       }
-    } else if (bucket === "within30" && summary.bucket === "safe") {
-      summary.bucket = "within30";
     }
 
-    map.set(lot.productId, summary);
-  }
-
-  return Array.from(map.values()).filter((item) => {
+    return {
+      productId: product.id,
+      name: product.name,
+      spec: product.spec,
+      janCode: product.janCode,
+      earliestExpiry: earliestLot ? formatDateLabel(earliestLot.expiryDate) : null,
+      totalQuantity,
+      bucket,
+    };
+  }).filter((item) => {
     const bucket = params.bucket ?? "all";
 
     if (bucket === "all") {

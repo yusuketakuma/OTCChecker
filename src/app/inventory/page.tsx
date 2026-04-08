@@ -19,7 +19,7 @@ type ProductSummary = {
   janCode: string;
   earliestExpiry: string | null;
   totalQuantity: number;
-  bucket: "expired" | "within7" | "within30" | "safe";
+  bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 const tabs = [
@@ -126,8 +126,8 @@ export default function InventoryPage() {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <Link href={`/inventory/${item.productId}`} key={item.productId}>
-              <Card className="space-y-3">
+            <Card className="space-y-3" key={item.productId}>
+              <Link href={`/inventory/${item.productId}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle>{item.name}</CardTitle>
@@ -141,6 +141,8 @@ export default function InventoryPage() {
                           ? "info"
                           : item.bucket === "within7"
                             ? "warning"
+                            : item.bucket === "outOfStock"
+                              ? "neutral"
                             : "success"
                     }
                   >
@@ -150,6 +152,8 @@ export default function InventoryPage() {
                         ? "7日以内"
                         : item.bucket === "within30"
                           ? "30日以内"
+                          : item.bucket === "outOfStock"
+                            ? "在庫なし"
                           : "正常"}
                   </Badge>
                 </div>
@@ -158,8 +162,22 @@ export default function InventoryPage() {
                   <p>合計在庫: {formatQuantity(item.totalQuantity)}個</p>
                   <p className="col-span-2">最短期限: {item.earliestExpiry ?? "-"}</p>
                 </div>
-              </Card>
-            </Link>
+              </Link>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Link
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  href={`/inventory/${item.productId}`}
+                >
+                  在庫編集
+                </Link>
+                <Link
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+                  href={`/inventory/${item.productId}`}
+                >
+                  {item.bucket === "outOfStock" ? "入荷登録" : "詳細を見る"}
+                </Link>
+              </div>
+            </Card>
           ))}
         </div>
       )}
