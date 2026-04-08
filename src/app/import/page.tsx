@@ -14,7 +14,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, putJson } from "@/lib/client";
 import { parsePositiveIntegerInput, positiveIntegerInputProps } from "@/lib/mobile-input";
-import { readStoredReceiptDefaults } from "@/lib/receipt-defaults";
+import {
+  clearStoredReceiptDefaults,
+  readStoredReceiptDefaults,
+  writeStoredReceiptDefaults,
+} from "@/lib/receipt-defaults";
 import { addDaysToDateKey, todayJstKey } from "@/lib/date";
 import { cn, formatQuantity } from "@/lib/utils";
 
@@ -274,6 +278,19 @@ export default function ImportPage() {
       ),
     [filteredUnmatched, rowValidations],
   );
+
+  useEffect(() => {
+    const parsedBulkQuantity = parsePositiveIntegerInput(bulkReceiptQuantity);
+    writeStoredReceiptDefaults(bulkExpiryDate, parsedBulkQuantity ?? 1);
+  }, [bulkExpiryDate, bulkReceiptQuantity]);
+
+  function clearBulkReceiptDefaults() {
+    setBulkExpiryDate("");
+    setBulkReceiptQuantity("1");
+    clearStoredReceiptDefaults();
+    setMessage("一括入荷条件の保持をクリアしました。");
+    setError("");
+  }
 
   function applyUnmatchedRows(rows: UnmatchedRow[]) {
     const storedDefaults = readStoredReceiptDefaults();
@@ -772,6 +789,26 @@ export default function ImportPage() {
                     </div>
                   </div>
                 </div>
+                {(bulkExpiryDate || (parsePositiveIntegerInput(bulkReceiptQuantity) ?? 1) > 1) ? (
+                  <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">前回の入荷条件を保持中</p>
+                        <p className="mt-1">
+                          期限日 {bulkExpiryDate || "未設定"} / 数量 {parsePositiveIntegerInput(bulkReceiptQuantity) ?? 1}個
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!isOnline}
+                        className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-emerald-900 ring-1 ring-emerald-200 disabled:opacity-50"
+                        onClick={clearBulkReceiptDefaults}
+                      >
+                        保持をクリア
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                   <p>検索や理由フィルタで表示中の行だけに反映します。</p>
                   <div className="flex flex-wrap gap-2">
