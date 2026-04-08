@@ -24,7 +24,7 @@ import {
   positiveIntegerInputProps,
   signedIntegerInputProps,
 } from "@/lib/mobile-input";
-import { parseCommaSeparatedIntegers } from "@/lib/utils";
+import { parseAlertDaysInput } from "@/lib/utils";
 
 type HistoryTab = "receipts" | "sales" | "disposals" | "adjustments";
 
@@ -321,6 +321,7 @@ export default function InventoryDetailPage() {
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
   const [pendingDeleteLotId, setPendingDeleteLotId] = useState<string | null>(null);
   const parsedReceiptQuantity = parsePositiveIntegerInput(receiptQuantity);
+  const alertDaysInput = parseAlertDaysInput(editAlertDays);
   const parsedSaleQuantity = parsePositiveIntegerInput(saleQuantity);
   const totalActiveQuantity = useMemo(
     () =>
@@ -432,11 +433,18 @@ export default function InventoryDetailPage() {
     try {
       setError("");
       setMessage("");
+      if (alertDaysInput.error) {
+        setError(alertDaysInput.error);
+        setMessage("");
+        return;
+      }
+
       await putJson(`/api/products/${product.id}`, {
         name: editName,
         spec: editSpec,
-        alertDays: parseCommaSeparatedIntegers(editAlertDays),
+        alertDays: alertDaysInput.values,
       });
+      setEditAlertDays(alertDaysInput.normalizedText);
       setMessage("商品マスタを更新しました。");
       await load();
     } catch (cause) {
@@ -652,9 +660,12 @@ export default function InventoryDetailPage() {
               onChange={(event) => setEditAlertDays(event.target.value)}
               placeholder="30,7,0"
             />
+            <p className={`text-sm ${alertDaysInput.error ? "text-[var(--color-danger)]" : "text-slate-500"}`}>
+              {alertDaysInput.error || `保存時は ${alertDaysInput.normalizedText} に整えて反映します。全角カンマも使えます。`}
+            </p>
           </div>
         </div>
-        <Button className="w-full" disabled={!isOnline || saving} onClick={saveProduct}>
+        <Button className="w-full" disabled={!isOnline || saving || Boolean(alertDaysInput.error)} onClick={saveProduct}>
           商品マスタを更新
         </Button>
       </Card>

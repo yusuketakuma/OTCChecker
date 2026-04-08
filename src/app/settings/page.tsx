@@ -8,7 +8,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, putJson } from "@/lib/client";
-import { parseCommaSeparatedIntegers } from "@/lib/utils";
+import { parseAlertDaysInput } from "@/lib/utils";
 
 type Settings = {
   defaultAlertDays: number[];
@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [alertDays, setAlertDays] = useState("30,7,0");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const alertDaysInput = parseAlertDaysInput(alertDays);
 
   useEffect(() => {
     fetchJson<Settings>("/api/settings")
@@ -53,10 +54,17 @@ export default function SettingsPage() {
     }
 
     try {
+      if (alertDaysInput.error) {
+        setError(alertDaysInput.error);
+        setMessage("");
+        return;
+      }
+
       const updated = await putJson<Settings>("/api/settings", {
-        defaultAlertDays: parseCommaSeparatedIntegers(alertDays),
+        defaultAlertDays: alertDaysInput.values,
       });
       setSettings(updated);
+      setAlertDays(updated.defaultAlertDays.join(","));
       setMessage("設定を保存しました。");
       setError("");
     } catch (cause) {
@@ -76,7 +84,10 @@ export default function SettingsPage() {
         <CardTitle>既定アラート閾値</CardTitle>
         <CardDescription>新規 SKU にだけ適用されます。カンマ区切りで入力してください。</CardDescription>
         <Input disabled={!isOnline} value={alertDays} onChange={(event) => setAlertDays(event.target.value)} />
-        <Button className="w-full" disabled={!isOnline} onClick={save}>
+        <p className={`text-sm ${alertDaysInput.error ? "text-[var(--color-danger)]" : "text-slate-500"}`}>
+          {alertDaysInput.error || `保存時は ${alertDaysInput.normalizedText} に整えて反映します。全角カンマも使えます。`}
+        </p>
+        <Button className="w-full" disabled={!isOnline || Boolean(alertDaysInput.error)} onClick={save}>
           設定を保存
         </Button>
       </Card>

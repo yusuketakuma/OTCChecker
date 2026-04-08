@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { normalizeAlertDays } from "@/lib/date";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -15,9 +17,46 @@ export function formatLotNumber(value: string) {
 
 export function parseCommaSeparatedIntegers(input: string) {
   return input
+    .replaceAll("、", ",")
+    .replaceAll("，", ",")
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0)
     .map((item) => Number(item))
     .filter((item): item is number => Number.isInteger(item));
+}
+
+export function parseAlertDaysInput(input: string) {
+  const values = parseCommaSeparatedIntegers(input);
+  const normalized = normalizeAlertDays(values);
+
+  if (values.length === 0) {
+    return {
+      values: normalized,
+      normalizedText: "",
+      error: "アラート日数を1件以上入力してください。",
+    };
+  }
+
+  if (values.some((value) => value < 0 || value > 365)) {
+    return {
+      values: normalized,
+      normalizedText: normalized.join(","),
+      error: "アラート日数は0〜365の整数で入力してください。",
+    };
+  }
+
+  if (normalized.length > 10) {
+    return {
+      values: normalized,
+      normalizedText: normalized.join(","),
+      error: "アラート日数は10件以内で入力してください。",
+    };
+  }
+
+  return {
+    values: normalized,
+    normalizedText: normalized.join(","),
+    error: "",
+  };
 }
