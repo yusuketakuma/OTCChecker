@@ -18,7 +18,7 @@ import {
   sanitizeJanInput,
 } from "@/lib/mobile-input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
-import { formatQuantity } from "@/lib/utils";
+import { formatLotNumber, formatQuantity } from "@/lib/utils";
 
 type ProductMasterSummary = {
   productId: string;
@@ -29,6 +29,7 @@ type ProductMasterSummary = {
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
+  primaryLotId: string | null;
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
@@ -267,11 +268,10 @@ export default function ProductsPage() {
                   </Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
-                  <p>JAN: {item.janCode}</p>
-                  <p>アラート: {item.alertDays.join("/")}</p>
+                  <p className="col-span-2">ロット番号: {item.primaryLotId ? formatLotNumber(item.primaryLotId) : "-"}</p>
                   <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
-                  <p>有効ロット: {item.activeLotCount}件</p>
-                  <p className="col-span-2">最短期限: {item.earliestExpiry ?? "-"}</p>
+                  <p>期限: {item.earliestExpiry ?? "-"}</p>
+                  <p className="col-span-2">JAN: {item.janCode}</p>
                 </div>
               </Link>
               <div className="grid gap-2 sm:grid-cols-2">

@@ -36,12 +36,14 @@ export type ProductMasterSummary = {
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
+  primaryLotId: string | null;
   bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 type ProductSummaryBucket = ProductMasterSummary["bucket"];
 type ActiveInventoryBucket = InventoryProductSummary["bucket"];
 type ActiveLotSeed = {
+  id: string;
   productId: string;
   expiryDate: Date;
   quantity: number;
@@ -83,6 +85,7 @@ function summarizeActiveLots(lots: ActiveLotSeed[]) {
 
   if (!earliestLot) {
     return {
+      primaryLotId: null,
       earliestExpiry: null,
       totalQuantity: 0,
       activeLotCount: 0,
@@ -91,6 +94,7 @@ function summarizeActiveLots(lots: ActiveLotSeed[]) {
   }
 
   return {
+    primaryLotId: earliestLot.id,
     earliestExpiry: formatDateLabel(earliestLot.expiryDate),
     totalQuantity: lots.reduce((sum, lot) => sum + lot.quantity, 0),
     activeLotCount: lots.length,
@@ -234,6 +238,7 @@ export async function listProductMasters(params: {
       spec: product.spec,
       janCode: product.janCode,
       alertDays: readAlertDays(product.alertDays),
+      primaryLotId: summary.primaryLotId,
       earliestExpiry: summary.earliestExpiry,
       totalQuantity: summary.totalQuantity,
       activeLotCount: summary.activeLotCount,
