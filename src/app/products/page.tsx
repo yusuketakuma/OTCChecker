@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { fetchJson, postJson } from "@/lib/client";
 import { addDaysToDateKey, todayJstKey } from "@/lib/date";
@@ -251,12 +252,20 @@ function ProductsPageContent({
       />
 
       <Card className="space-y-4">
-        <CardTitle>商品検索</CardTitle>
-        <Input
-          placeholder="商品名・規格・JANコードで検索"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <div className="space-y-1">
+          <CardTitle>商品検索</CardTitle>
+          <CardDescription>名前・規格・JANで商品マスタを絞り込みます。</CardDescription>
+        </div>
+        <div className="space-y-2">
+          <FormLabel htmlFor="products-search">商品を検索</FormLabel>
+          <Input
+            aria-label="商品を検索"
+            id="products-search"
+            placeholder="商品名・JANコード"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
         <div className="flex flex-wrap gap-2">
           {productFilters.map((item) => (
             <button

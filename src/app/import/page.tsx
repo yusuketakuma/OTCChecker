@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useOnlineStatus } from "@/hooks/use-online-status";
@@ -704,16 +705,24 @@ export default function ImportPage() {
               <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
                 <FieldLabel>表示中の未割当に一括入力</FieldLabel>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="space-y-1">
+                  <div className="space-y-2 rounded-2xl border border-[var(--color-brand-soft)] bg-white/80 p-3">
+                    <div className="space-y-1">
+                      <FormLabel htmlFor="bulk-resolution-note">一括解決メモ</FormLabel>
+                      <p className="text-xs text-slate-500">表示中の未割当に共通で反映します。</p>
+                    </div>
                     <Input
+                      aria-label="一括解決メモ"
+                      id="bulk-resolution-note"
                       disabled={!isOnline}
                       value={bulkResolutionNote}
                       onChange={(event) => setBulkResolutionNote(event.target.value)}
-                      placeholder="解決メモ"
+                      placeholder="例: 棚卸確認済み"
                     />
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
+                    <FormLabel htmlFor="bulk-expiry-date">一括期限日</FormLabel>
                     <Input
+                      id="bulk-expiry-date"
                       disabled={!isOnline}
                       type="date"
                       value={bulkExpiryDate}
@@ -733,14 +742,16 @@ export default function ImportPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
+                    <FormLabel htmlFor="bulk-receipt-quantity">一括入荷数量</FormLabel>
                     <Input
+                      id="bulk-receipt-quantity"
                       disabled={!isOnline}
                       {...positiveIntegerInputProps}
                       enterKeyHint="done"
                       value={bulkReceiptQuantity}
                       onChange={(event) => setBulkReceiptQuantity(event.target.value)}
-                      placeholder="入荷数量"
+                      placeholder="例: 3"
                     />
                     <div className="flex flex-wrap gap-2">
                       {quantityPresets.map((preset) => (
@@ -802,6 +813,8 @@ export default function ImportPage() {
                 {filteredUnmatched.map((row) => {
                   const validation = rowValidations[row.id];
                   const isResolving = resolvingId === row.id;
+                  const resolutionNoteId = `resolution-note-${row.id}`;
+                  const resolutionNoteLabel = `${row.rawProductName || "未割当行"}の解決メモ`;
 
                   return (
                     <Card className="space-y-3" key={row.id}>
@@ -997,10 +1010,12 @@ export default function ImportPage() {
                         </div>
                       ) : null}
                       <div className="space-y-2">
-                        <FieldLabel>解決メモ</FieldLabel>
+                        <FormLabel htmlFor={resolutionNoteId}>{resolutionNoteLabel}</FormLabel>
                         <Textarea
+                          aria-label={resolutionNoteLabel}
                           aria-invalid={validation?.missingNote || undefined}
                           className={invalidFieldClass(validation?.missingNote ?? false)}
+                          id={resolutionNoteId}
                           value={resolutionDrafts[row.id] ?? ""}
                           onChange={(event) =>
                             setResolutionDrafts((current) => ({
@@ -1008,7 +1023,7 @@ export default function ImportPage() {
                               [row.id]: event.target.value,
                             }))
                           }
-                          placeholder="解決メモを入力"
+                          placeholder="この行の対応メモ"
                         />
                         <ValidationHint show={validation?.missingNote ?? false}>
                           解決メモを入力してください
