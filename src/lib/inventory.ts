@@ -156,24 +156,37 @@ function matchesProductMasterFilter(
   return true;
 }
 
+function buildProductSearchWhere(search?: string) {
+  const trimmed = search?.trim();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const normalizedJanSearch = normalizeJanCode(trimmed);
+  const orConditions: Prisma.ProductWhereInput[] = [
+    { name: { contains: trimmed } },
+    { spec: { contains: trimmed } },
+    { janCode: { contains: trimmed } },
+  ];
+
+  if (normalizedJanSearch && normalizedJanSearch !== trimmed) {
+    orConditions.push({ janCode: { contains: normalizedJanSearch } });
+  }
+
+  return { OR: orConditions } satisfies Prisma.ProductWhereInput;
+}
+
 export async function listInventoryProducts(params: {
   search?: string;
   bucket?: string;
 }) {
   const prisma = await getPrisma();
-  const search = params.search?.trim();
+  const productSearchWhere = buildProductSearchWhere(params.search);
   const lots = await prisma.inventoryLot.findMany({
     where: {
       status: InventoryLotStatus.ACTIVE,
-      product: search
-        ? {
-            OR: [
-              { name: { contains: search } },
-              { spec: { contains: search } },
-              { janCode: { contains: search } },
-            ],
-          }
-        : undefined,
+      product: productSearchWhere,
     },
     include: {
       product: true,
@@ -227,46 +240,22 @@ export async function listProductMasters(params: {
   filter?: ProductMasterFilter | string;
 }) {
   const prisma = await getPrisma();
-  const search = params.search?.trim();
+  const productSearchWhere = buildProductSearchWhere(params.search);
   const [products, activeLots, allLots] = await Promise.all([
     prisma.product.findMany({
-      where: search
-        ? {
-            OR: [
-              { name: { contains: search } },
-              { spec: { contains: search } },
-              { janCode: { contains: search } },
-            ],
-          }
-        : undefined,
+      where: productSearchWhere,
       orderBy: [{ name: "asc" }, { createdAt: "desc" }],
     }),
     prisma.inventoryLot.findMany({
       where: {
         status: InventoryLotStatus.ACTIVE,
-        product: search
-          ? {
-              OR: [
-                { name: { contains: search } },
-                { spec: { contains: search } },
-                { janCode: { contains: search } },
-              ],
-            }
-          : undefined,
+        product: productSearchWhere,
       },
       orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     }),
     prisma.inventoryLot.findMany({
       where: {
-        product: search
-          ? {
-              OR: [
-                { name: { contains: search } },
-                { spec: { contains: search } },
-                { janCode: { contains: search } },
-              ],
-            }
-          : undefined,
+        product: productSearchWhere,
       },
       select: {
         id: true,
