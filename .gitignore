@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
+/prisma/e2e.db*
 
 # next.js
 /.next/

@@ -1,0 +1,88 @@
+import { expect, test } from "@playwright/test";
+
+test("在庫詳細で商品更新・入荷・売上・ロット操作・履歴確認ができる", async ({ page }) => {
+  // ── シード商品「在庫操作E2E商品」の詳細へ遷移 ──
+  await page.goto("/inventory");
+  await page.waitForResponse((r) => r.url().includes("/api/products") && r.status() === 200);
+  await page.getByPlaceholder("商品名・JANコードで検索").fill("在庫操作E2E");
+  await page.waitForResponse((r) => r.url().includes("/api/products") && r.status() === 200);
+  await expect(page.getByText("在庫操作E2E商品")).toBeVisible();
+  await page.getByRole("link", { name: "在庫操作E2E商品の詳細を見る" }).click();
+
+  await expect(page.getByRole("heading", { name: "在庫操作E2E商品" })).toBeVisible();
+  await expect(page.getByText("100錠 / JAN 4900000000005")).toBeVisible();
+
+  // 初期ロット: 期限 2030/01/15, 10個
+  await expect(page.getByText("初回 10個 / 現在 10個")).toBeVisible();
+
+  // ── 1. 商品マスタ更新 ──
+  const nameInput = page.getByPlaceholder("商品名");
+  await nameInput.clear();
+  await nameInput.fill("在庫操作E2E商品 更新");
+  await page.getByRole("button", { name: "商品マスタを更新" }).click();
+  await expect(page.getByText("商品マスタを更新しました。")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "在庫操作E2E商品 更新" })).toBeVisible();
+
+  // ── 2. 手動入荷登録（新ロット追加）──
+  const receiptSection = page.locator("div").filter({ hasText: /^手動入荷登録/ }).first();
+  await receiptSection.locator('input[type="date"]').fill("2030-06-30");
+  await receiptSection.locator('input[type="number"]').fill("5");
+  await page.getByRole("button", { name: "入荷登録" }).click();
+  await expect(page.getByText("入荷を登録しました。")).toBeVisible();
+
+  // ロットが2件になる
+  await expect(page.getByRole("heading", { name: "期限 2030/06/30" })).toBeVisible();
+  await expect(page.getByText("初回 5個 / 現在 5個")).toBeVisible();
+
+  // ── 3. 手動売上登録（FIFO → 初期ロットから消費）──
+  const saleSection = page.locator("div").filter({ hasText: /^手動売上登録/ }).first();
+  await saleSection.locator('input[type="number"]').fill("4");
+  await page.getByRole("button", { name: "売上登録" }).click();
+  await expect(page.getByText("手動売上を登録しました。")).toBeVisible();
+  // 初期ロット: 10→6
+  await expect(page.getByText("初回 10個 / 現在 6個")).toBeVisible();
+
+  // ── 4. 数量上書き（初期ロット → 8）──
+  const qtyInput = page.getByText("現在庫", { exact: true }).first().locator("..").locator('input[type="number"]');
+  await qtyInput.clear();
+  await qtyInput.fill("8");
+  const reasonInput = page.getByPlaceholder("修正理由").first();
+  await reasonInput.clear();
+  await reasonInput.fill("棚卸再計数E2E");
+  await page.getByRole("button", { name: "数量更新" }).first().click();
+  await expect(page.getByText("在庫数量を更新しました。")).toBeVisible();
+  await expect(page.getByText("初回 10個 / 現在 8個")).toBeVisible();
+
+  // ── 5. 差分調整（初期ロット -2）──
+  const deltaInput = page.getByText("差分", { exact: true }).first().locator("..").locator('input[type="number"]');
+  await deltaInput.clear();
+  await deltaInput.fill("-2");
+  const adjustReason = page.getByPlaceholder("差分調整理由").first();
+  await adjustReason.clear();
+  await adjustReason.fill("棚卸差異E2E");
+  await page.getByRole("button", { name: "差分調整" }).first().click();
+  await expect(page.getByText("差分調整を登録しました。")).toBeVisible();
+  await expect(page.getByText("初回 10個 / 現在 6個")).toBeVisible();
+
+  // ── 6. 廃棄登録（初期ロット 1個）──
+  const disposeInput = page.getByText("廃棄数", { exact: true }).first().locator("..").locator('input[type="number"]');
+  await disposeInput.fill("1");
+  const disposeReason = page.getByPlaceholder("廃棄理由").first();
+  await disposeReason.clear();
+  await disposeReason.fill("期限近接E2E");
+  await page.getByRole("button", { name: "廃棄登録" }).first().click();
+  await expect(page.getByText("廃棄を登録しました。")).toBeVisible();
+  await expect(page.getByText("初回 10個 / 現在 5個")).toBeVisible();
+
+  // ── 7. 履歴タブ確認 ──
+  await page.getByRole("button", { name: "売上", exact: true }).click();
+  await expect(page.getByText(/手動売上 \/ 売上日/)).toBeVisible();
+
+  // 廃棄タブ
+  await page.getByRole("button", { name: "廃棄", exact: true }).click();
+  await expect(page.getByText("期限近接E2E")).toBeVisible();
+
+  // 調整タブ
+  await page.getByRole("button", { name: "調整", exact: true }).click();
+  await expect(page.getByText("棚卸差異E2E")).toBeVisible();
+});

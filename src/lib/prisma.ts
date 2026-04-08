@@ -65,6 +65,14 @@ async function createCloudflarePrismaClient(db: unknown) {
 async function createPrismaClient() {
   let cloudflareContextError: unknown;
 
+  if (process.env.FORCE_NODE_PRISMA === "1") {
+    if (process.env.DATABASE_URL) {
+      return globalForPrisma.prisma ?? createNodePrismaClient();
+    }
+
+    throw new Error("FORCE_NODE_PRISMA=1 requires DATABASE_URL.");
+  }
+
   try {
     const cloudflareDb = await getCloudflareD1Binding();
 

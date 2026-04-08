@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());
+if (process.env.SKIP_CLOUDFLARE_DEV_CONTEXT !== "1") {
+  import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
