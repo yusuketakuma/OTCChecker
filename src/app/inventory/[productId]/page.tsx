@@ -717,7 +717,7 @@ export default function InventoryDetailPage() {
         </div>
       </Card>
 
-      <Card className="space-y-4">
+      <Card className="space-y-4" id="manual-sale">
         <CardTitle>手動売上登録</CardTitle>
         <CardDescription>CSV を待たずに、その場の販売や補正売上を FIFO で反映します。</CardDescription>
         <div className="rounded-2xl bg-slate-50/90 p-3 text-sm text-slate-700">

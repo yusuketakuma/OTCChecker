@@ -190,11 +190,11 @@ function InventoryPageContent({
                   入荷する
                 </Link>
                 <Link
-                  aria-label={`${item.name}の在庫編集を開く`}
+                  aria-label={`${item.name}の売上登録を開く`}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
-                  href={`/inventory/${item.productId}`}
+                  href={`/inventory/${item.productId}#manual-sale`}
                 >
-                  在庫編集
+                  売上登録
                 </Link>
                 <Link
                   aria-label={`${item.name}の詳細を見る`}
