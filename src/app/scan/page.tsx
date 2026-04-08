@@ -20,6 +20,11 @@ import {
   positiveIntegerInputProps,
   sanitizeJanInput,
 } from "@/lib/mobile-input";
+import {
+  clearStoredReceiptDefaults,
+  readStoredReceiptDefaults,
+  writeStoredReceiptDefaults,
+} from "@/lib/receipt-defaults";
 
 type ProductLookup = {
   id: string;
@@ -37,7 +42,6 @@ type LookupState =
   | { status: "error"; janCode: string; message: string };
 
 const recentScanStorageKey = "otc-checker:recent-scans";
-const receiptDefaultsStorageKey = "otc-checker:scan-receipt-defaults";
 const expiryPresets = [
   { label: "今日", days: 0 },
   { label: "+30日", days: 30 },
@@ -46,33 +50,6 @@ const expiryPresets = [
 ] as const;
 
 const quantityPresets = [1, 3, 5, 10] as const;
-
-function readStoredReceiptDefaults() {
-  if (typeof window === "undefined") {
-    return { expiryDate: "", quantity: "1" };
-  }
-
-  try {
-    const saved = window.localStorage.getItem(receiptDefaultsStorageKey);
-
-    if (!saved) {
-      return { expiryDate: "", quantity: "1" };
-    }
-
-    const parsed = JSON.parse(saved) as { expiryDate?: string; quantity?: number };
-
-    return {
-      expiryDate: typeof parsed.expiryDate === "string" ? parsed.expiryDate : "",
-      quantity:
-        typeof parsed.quantity === "number" && parsed.quantity > 0
-          ? String(parsed.quantity)
-          : "1",
-    };
-  } catch {
-    window.localStorage.removeItem(receiptDefaultsStorageKey);
-    return { expiryDate: "", quantity: "1" };
-  }
-}
 
 function ScanPageContent() {
   const searchParams = useSearchParams();
@@ -84,7 +61,7 @@ function ScanPageContent() {
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
   const [expiryDate, setExpiryDate] = useState(() => readStoredReceiptDefaults().expiryDate);
-  const [quantity, setQuantity] = useState(() => readStoredReceiptDefaults().quantity);
+  const [quantity, setQuantity] = useState(() => String(readStoredReceiptDefaults().quantity));
   const [message, setMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -176,10 +153,7 @@ function ScanPageContent() {
   function clearReceiptDefaults() {
     setExpiryDate("");
     setQuantity("1");
-
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(receiptDefaultsStorageKey);
-    }
+    clearStoredReceiptDefaults();
   }
 
   function clearRecentScans() {
@@ -191,17 +165,7 @@ function ScanPageContent() {
   }
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(
-      receiptDefaultsStorageKey,
-      JSON.stringify({
-        expiryDate,
-        quantity: parsedQuantity ?? 1,
-      }),
-    );
+    writeStoredReceiptDefaults(expiryDate, parsedQuantity ?? 1);
   }, [expiryDate, parsedQuantity]);
 
   useEffect(() => {

@@ -16,7 +16,6 @@ import {
   formatDateLabel,
   formatDateTimeLabel,
   todayJstKey,
-  toDateInputValue,
 } from "@/lib/date";
 import {
   nonNegativeIntegerInputProps,
@@ -24,6 +23,10 @@ import {
   positiveIntegerInputProps,
   signedIntegerInputProps,
 } from "@/lib/mobile-input";
+import {
+  readStoredReceiptDefaults,
+  writeStoredReceiptDefaults,
+} from "@/lib/receipt-defaults";
 import { parseAlertDaysInput } from "@/lib/utils";
 
 type HistoryTab = "receipts" | "sales" | "disposals" | "adjustments";
@@ -314,8 +317,8 @@ export default function InventoryDetailPage() {
   const [adjustReasons, setAdjustReasons] = useState<Record<string, string>>({});
   const [disposeDrafts, setDisposeDrafts] = useState<Record<string, string>>({});
   const [disposeReasons, setDisposeReasons] = useState<Record<string, string>>({});
-  const [receiptExpiryDate, setReceiptExpiryDate] = useState("");
-  const [receiptQuantity, setReceiptQuantity] = useState("1");
+  const [receiptExpiryDate, setReceiptExpiryDate] = useState(() => readStoredReceiptDefaults().expiryDate);
+  const [receiptQuantity, setReceiptQuantity] = useState(() => String(readStoredReceiptDefaults().quantity));
   const [saleDate, setSaleDate] = useState(todayJstKey());
   const [saleQuantity, setSaleQuantity] = useState("1");
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
@@ -351,8 +354,6 @@ export default function InventoryDetailPage() {
       setDisposeReasons(
         Object.fromEntries(detail.lots.map((lot) => [lot.id, "期限近接による廃棄"])),
       );
-      setReceiptExpiryDate(toDateInputValue(detail.lots[0]?.expiryDate));
-      setReceiptQuantity("1");
       setSaleDate(todayJstKey());
       setSaleQuantity("1");
       setPendingDeleteLotId(null);
@@ -365,6 +366,10 @@ export default function InventoryDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    writeStoredReceiptDefaults(receiptExpiryDate, parsedReceiptQuantity ?? 1);
+  }, [parsedReceiptQuantity, receiptExpiryDate]);
 
   const history = useMemo(() => {
     if (!product) {
@@ -672,7 +677,7 @@ export default function InventoryDetailPage() {
 
       <Card className="space-y-4">
         <CardTitle>手動入荷登録</CardTitle>
-        <CardDescription>バーコードが使えない場合も、この商品へ直接入荷を追加できます。</CardDescription>
+        <CardDescription>バーコードが使えない場合も、この商品へ直接入荷を追加できます。前回の入荷条件も引き継ぎます。</CardDescription>
         <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
           <div className="space-y-2">
             <FieldLabel>期限日</FieldLabel>

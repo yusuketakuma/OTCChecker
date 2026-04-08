@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, putJson } from "@/lib/client";
 import { parsePositiveIntegerInput, positiveIntegerInputProps } from "@/lib/mobile-input";
+import { readStoredReceiptDefaults } from "@/lib/receipt-defaults";
 import { addDaysToDateKey, todayJstKey } from "@/lib/date";
 import { cn, formatQuantity } from "@/lib/utils";
 
@@ -81,7 +82,6 @@ const unmatchedReasonOptions = [
   { key: "DUPLICATE_ROW", label: "重複行" },
 ] as const;
 
-const receiptDefaultsStorageKey = "otc-checker:scan-receipt-defaults";
 const receiptExpiryPresets = [
   { label: "今日", days: 0 },
   { label: "+30日", days: 30 },
@@ -146,31 +146,6 @@ function invalidFieldClass(invalid: boolean) {
   return invalid
     ? "border-[var(--color-danger)] focus:border-[var(--color-danger)] focus:ring-[var(--color-danger)]/20"
     : undefined;
-}
-
-function readStoredReceiptDefaults() {
-  if (typeof window === "undefined") {
-    return { expiryDate: "", quantity: 1 };
-  }
-
-  try {
-    const saved = window.localStorage.getItem(receiptDefaultsStorageKey);
-
-    if (!saved) {
-      return { expiryDate: "", quantity: 1 };
-    }
-
-    const parsed = JSON.parse(saved) as { expiryDate?: string; quantity?: number };
-
-    return {
-      expiryDate: typeof parsed.expiryDate === "string" ? parsed.expiryDate : "",
-      quantity:
-        typeof parsed.quantity === "number" && parsed.quantity > 0 ? parsed.quantity : 1,
-    };
-  } catch {
-    window.localStorage.removeItem(receiptDefaultsStorageKey);
-    return { expiryDate: "", quantity: 1 };
-  }
 }
 
 function summarizePreview(rows: PreviewResponse["rows"]) {
