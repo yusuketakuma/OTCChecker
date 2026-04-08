@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { EmptyState } from "@/components/app/empty-state";
@@ -126,6 +126,20 @@ function parseIntegerDraft(value: string) {
 
   const parsed = Number(trimmed);
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function getHashTargetId(hash: string) {
+  if (!hash.startsWith("#") || hash.length < 2) {
+    return null;
+  }
+
+  const encodedId = hash.slice(1);
+
+  try {
+    return decodeURIComponent(encodedId);
+  } catch {
+    return encodedId;
+  }
 }
 
 function isLotDeleteBlocked(lot: Lot) {
@@ -305,6 +319,7 @@ export default function InventoryDetailPage() {
   const params = useParams<{ productId: string }>();
   const productId = params.productId;
   const isOnline = useOnlineStatus();
+  const handledHashRef = useRef<string | null>(null);
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -377,6 +392,69 @@ export default function InventoryDetailPage() {
   useEffect(() => {
     writeStoredReceiptDefaults(receiptExpiryDate, parsedReceiptQuantity ?? 1);
   }, [parsedReceiptQuantity, receiptExpiryDate]);
+
+  const scrollToCurrentHash = useCallback(() => {
+    const hash = window.location.hash;
+    const targetId = getHashTargetId(hash);
+
+    if (!targetId) {
+      handledHashRef.current = null;
+      return false;
+    }
+
+    const target = document.getElementById(targetId);
+
+    if (!target) {
+      return false;
+    }
+
+    target.scrollIntoView({ block: "start" });
+    handledHashRef.current = hash;
+    return true;
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+
+    if (!hash || handledHashRef.current === hash) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollToCurrentHash();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [product, scrollToCurrentHash]);
+
+  useEffect(() => {
+    let frameId = 0;
+
+    const handleHashChange = () => {
+      handledHashRef.current = null;
+
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        scrollToCurrentHash();
+      });
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [scrollToCurrentHash]);
 
   const history = useMemo(() => {
     if (!product) {
