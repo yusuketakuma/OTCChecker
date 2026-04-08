@@ -11,7 +11,6 @@ import { fetchJson } from "@/lib/client";
 
 type DashboardSummary = {
   expiredCount: number;
-  todayCount: number;
   within7Count: number;
   within30Count: number;
   unmatchedCount: number;
@@ -28,11 +27,34 @@ type DashboardSummary = {
 };
 
 const cardConfig = [
-  { key: "expiredCount", label: "期限切れ", tone: "danger", href: "/inventory?bucket=expired" },
-  { key: "todayCount", label: "本日", tone: "warning", href: "/inventory?bucket=today" },
-  { key: "within7Count", label: "7日以内", tone: "warning", href: "/inventory?bucket=7d" },
-  { key: "within30Count", label: "30日以内", tone: "info", href: "/inventory?bucket=30d" },
-  { key: "unmatchedCount", label: "未割当", tone: "neutral", href: "/import" },
+  {
+    key: "expiredCount",
+    label: "期限切れ",
+    detail: "営業日超過",
+    tone: "danger",
+    href: "/inventory?bucket=expired",
+  },
+  {
+    key: "within7Count",
+    label: "7日以内",
+    detail: "本日を含む",
+    tone: "warning",
+    href: "/inventory?bucket=7d",
+  },
+  {
+    key: "within30Count",
+    label: "30日以内",
+    detail: "8-30日",
+    tone: "info",
+    href: "/inventory?bucket=30d",
+  },
+  {
+    key: "unmatchedCount",
+    label: "未割当",
+    detail: "CSV要確認",
+    tone: "neutral",
+    href: "/import",
+  },
 ] as const;
 
 const quickActions = [
@@ -130,17 +152,20 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cardConfig.map((item) => (
           <Link href={item.href} key={item.key}>
-            <Card className="h-full bg-white/95 transition hover:-translate-y-0.5">
-              <Badge tone={item.tone as "danger" | "warning" | "info" | "neutral"}>{item.label}</Badge>
-              <div className="mt-4 flex items-end justify-between">
+            <Card className="flex h-full min-h-36 flex-col bg-white/95 transition hover:-translate-y-0.5">
+              <div className="flex items-start justify-between gap-3">
+                <Badge tone={item.tone as "danger" | "warning" | "info" | "neutral"}>{item.label}</Badge>
+                <span className="text-right text-xs font-medium text-slate-500">{item.detail}</span>
+              </div>
+              <div className="mt-auto space-y-1 pt-6">
+                <CardTitle className="text-3xl sm:text-4xl">
+                  {data ? data[item.key] : "--"}
+                </CardTitle>
                 <div>
-                  <CardTitle className="text-4xl">
-                    {data ? data[item.key] : "--"}
-                  </CardTitle>
-                  <CardDescription>タップして在庫一覧へ</CardDescription>
+                  <CardDescription>タップして一覧へ</CardDescription>
                 </div>
               </div>
             </Card>
