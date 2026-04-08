@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InventoryLotStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum SalesSource {
+  CSV_IMPORT
+  MANUAL
+}
+
+enum AlertKind {
+  THRESHOLD
+  EXPIRED
+}
+
+enum ImportBatchStatus {
+  PREVIEWED
+  EXECUTED
+  FAILED
+}
+
+enum UnmatchedReason {
+  NO_PRODUCT
+  INSUFFICIENT_STOCK
+  DUPLICATE_ROW
+  MANUAL_RESOLUTION
+}
+
+enum LineTargetType {
+  NONE
+  USER
+  GROUP
+  ROOM
+}
+
+enum NotificationDeliveryStatus {
+  SENT
+  SKIPPED
+  FAILED
+}
+
+model Product {
+  id        String         @id @default(uuid()) @db.Uuid
+  name      String
+  spec      String
+  janCode   String         @unique
+  alertDays Int[]          @default([30, 7, 0])
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  lots      InventoryLot[]
+
+  @@index([janCode])
+}
+
+model InventoryLot {
+  id                String             @id @default(uuid()) @db.Uuid
+  productId         String             @db.Uuid
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  expiryDate        DateTime           @db.Date
+  quantity          Int
+  initialQuantity   Int
+  status            InventoryLotStatus @default(ACTIVE)
+  version           Int                @default(1)
+  archivedAt        DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  salesRecords      SalesRecord[]
+  disposalRecords   DisposalRecord[]
+  alertLogs         AlertLog[]
+  receiptRecords    ReceiptRecord[]
+  adjustmentRecords AdjustmentRecord[]
+
+  @@index([productId, expiryDate])
+  @@index([status, expiryDate])
+  @@unique([productId, expiryDate, status], name: "product_expiry_status_unique")
+}
+
+model SalesRecord {
+  id               String       @id @default(uuid()) @db.Uuid
+  lotId            String       @db.Uuid
+  lot              InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  quantity         Int
+  source           SalesSource
+  posTransactionId String?
+  transactionDate  DateTime?    @db.Date
+  importBatchId    String?      @db.Uuid
+  importBatch      ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  sourceRowNo      Int?
+  sourceRowKey     String?
+  dedupeKey        String       @unique
+  createdAt        DateTime     @default(now())
+
+  @@index([lotId, createdAt])
+  @@index([importBatchId, sourceRowNo])
+}
+
+model DisposalRecord {
+  id        String       @id @default(uuid()) @db.Uuid
+  lotId     String       @db.Uuid
+  lot       InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  quantity  Int
+  reason    String
+  createdAt DateTime     @default(now())
+
+  @@index([lotId, createdAt])
+}
+
+model AlertLog {
+  id            String       @id @default(uuid()) @db.Uuid
+  lotId         String       @db.Uuid
+  lot           InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  alertKind     AlertKind
+  thresholdDays Int?
+  businessDate  DateTime?    @db.Date
+  sentAt        DateTime     @default(now())
+
+  @@unique([lotId, thresholdDays, alertKind], name: "alert_threshold_unique")
+  @@unique([lotId, businessDate, alertKind], name: "alert_expired_unique")
+  @@index([sentAt])
+}
+
+model UnmatchedSale {
+  id                String          @id @default(uuid()) @db.Uuid
+  rawProductName    String
+  janCode           String?
+  quantity          Int
+  requestedQuantity Int
+  appliedQuantity   Int             @default(0)
+  remainingQuantity Int
+  reason            UnmatchedReason
+  importedAt        DateTime        @default(now())
+  transactionDate   DateTime?       @db.Date
+  importBatchId     String?         @db.Uuid
+  importBatch       ImportBatch?    @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  sourceRowNo       Int?
+  rawRow            Json?
+  resolutionNote    String?
+  resolved          Boolean         @default(false)
+
+  @@index([resolved, importedAt])
+  @@index([importBatchId, sourceRowNo])
+}
+
+model ImportBatch {
+  id             String            @id @default(uuid()) @db.Uuid
+  fileName       String
+  fileHash       String            @unique
+  status         ImportBatchStatus
+  rowCount       Int               @default(0)
+  matchedCount   Int               @default(0)
+  unmatchedCount Int               @default(0)
+  duplicateCount Int               @default(0)
+  previewPayload Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  executedAt     DateTime?
+  salesRecords   SalesRecord[]
+  unmatchedSales UnmatchedSale[]
+  receiptRecords ReceiptRecord[]
+
+  @@index([status, createdAt])
+}
+
+model ReceiptRecord {
+  id            String       @id @default(uuid()) @db.Uuid
+  lotId         String       @db.Uuid
+  lot           InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  quantity      Int
+  importBatchId String?      @db.Uuid
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+
+  @@index([lotId, createdAt])
+}
+
+model AdjustmentRecord {
+  id        String       @id @default(uuid()) @db.Uuid
+  lotId     String       @db.Uuid
+  lot       InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  beforeQty Int
+  afterQty  Int
+  delta     Int
+  reason    String
+  createdAt DateTime     @default(now())
+
+  @@index([lotId, createdAt])
+}
+
+model AppSettings {
+  id               String         @id @default("singleton")
+  defaultAlertDays Int[]          @default([30, 7, 0])
+  timezone         String         @default("Asia/Tokyo")
+  lineTargetType   LineTargetType @default(NONE)
+  lineTargetId     String?
+  lineEnabled      Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model NotificationDeliveryLog {
+  id           String                     @id @default(uuid()) @db.Uuid
+  businessDate DateTime                   @db.Date
+  status       NotificationDeliveryStatus
+  reason       String
+  targetId     String?
+  lotCount     Int                        @default(0)
+  payload      Json?
+  createdAt    DateTime                   @default(now())
+
+  @@index([businessDate, createdAt])
+  @@index([status, createdAt])
+}
