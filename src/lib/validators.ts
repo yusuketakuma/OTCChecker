@@ -83,6 +83,18 @@ export const unmatchedResolveSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
+export const unmatchedBulkResolveSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        unmatchedId: z.string().uuid(),
+        payload: unmatchedResolveSchema,
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+
 export const csvExecuteSchema = z.object({
   previewId: z.string().uuid(),
 });

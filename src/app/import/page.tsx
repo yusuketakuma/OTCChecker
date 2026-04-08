@@ -62,6 +62,16 @@ type UnmatchedRow = {
   } | null;
 };
 
+type BulkResolveResponse = {
+  results: Array<{
+    unmatchedId: string;
+    status: "resolved" | "failed";
+    error?: string;
+  }>;
+  completedCount: number;
+  failedCount: number;
+};
+
 const previewTone = {
   MATCHED: "success",
   UNMATCHED: "warning",
@@ -502,45 +512,39 @@ export default function ImportPage() {
     setError("");
     setMessage("");
 
-    let completed = 0;
-    let failed = 0;
-    let firstFailure = "";
-
     try {
-      for (const row of targetRows) {
-        try {
-          if (action === "MARK_RESOLVED") {
-            await putJson(`/api/unmatched/${row.id}/resolve`, {
-              action,
-              resolutionNote: resolutionDrafts[row.id]?.trim(),
-            });
-          } else {
-            await putJson(`/api/unmatched/${row.id}/resolve`, {
-              action,
-              resolutionNote: resolutionDrafts[row.id]?.trim(),
-              expiryDate: expiryDateDrafts[row.id]?.trim(),
-              receiptQuantity: parsePositiveIntegerInput(receiptQuantityDrafts[row.id] ?? ""),
-              productName: row.matchedProduct ? undefined : productNameDrafts[row.id]?.trim(),
-              spec: row.matchedProduct ? undefined : specDrafts[row.id]?.trim(),
-            });
-          }
+      const response = await fetchJson<BulkResolveResponse>("/api/unmatched/bulk-resolve", {
+        method: "POST",
+        body: JSON.stringify({
+          entries: targetRows.map((row) => ({
+            unmatchedId: row.id,
+            payload:
+              action === "MARK_RESOLVED"
+                ? {
+                    action,
+                    resolutionNote: resolutionDrafts[row.id]?.trim(),
+                  }
+                : {
+                    action,
+                    resolutionNote: resolutionDrafts[row.id]?.trim(),
+                    expiryDate: expiryDateDrafts[row.id]?.trim(),
+                    receiptQuantity: parsePositiveIntegerInput(receiptQuantityDrafts[row.id] ?? ""),
+                    productName: row.matchedProduct ? undefined : productNameDrafts[row.id]?.trim(),
+                    spec: row.matchedProduct ? undefined : specDrafts[row.id]?.trim(),
+                  },
+          })),
+        }),
+      });
 
-          completed += 1;
-        } catch (cause) {
-          failed += 1;
-          if (!firstFailure) {
-            firstFailure = (cause as Error).message;
-          }
-        }
-      }
+      const firstFailure = response.results.find((result) => result.status === "failed")?.error ?? "";
 
       await loadUnmatched();
       setMessage(
         action === "MARK_RESOLVED"
-          ? `表示中の未割当を ${completed} 件解決済みにしました。`
-          : `表示中の未割当を ${completed} 件在庫へ反映しました。`,
+          ? `表示中の未割当を ${response.completedCount} 件解決済みにしました。`
+          : `表示中の未割当を ${response.completedCount} 件在庫へ反映しました。`,
       );
-      setError(failed > 0 ? `${failed}件は処理できませんでした。${firstFailure}` : "");
+      setError(response.failedCount > 0 ? `${response.failedCount}件は処理できませんでした。${firstFailure}` : "");
     } finally {
       setBulkResolvingAction(null);
     }
