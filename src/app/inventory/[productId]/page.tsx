@@ -151,6 +151,36 @@ function isLotDeleteBlocked(lot: Lot) {
   );
 }
 
+function buildSalePreview(lots: Lot[], requestedQuantity: number | null) {
+  if (requestedQuantity === null || requestedQuantity <= 0) {
+    return [] as Array<{
+      lotId: string;
+      expiryDate: string;
+      beforeQuantity: number;
+      consumeQuantity: number;
+      afterQuantity: number;
+    }>;
+  }
+
+  let remaining = requestedQuantity;
+
+  return lots
+    .filter((lot) => lot.status === "ACTIVE" && lot.quantity > 0)
+    .map((lot) => {
+      const consumeQuantity = Math.min(lot.quantity, remaining);
+      remaining -= consumeQuantity;
+
+      return {
+        lotId: lot.id,
+        expiryDate: lot.expiryDate,
+        beforeQuantity: lot.quantity,
+        consumeQuantity,
+        afterQuantity: lot.quantity - consumeQuantity,
+      };
+    })
+    .filter((lot) => lot.consumeQuantity > 0);
+}
+
 function getQuantityActionState(
   lot: Lot,
   draft: string,
@@ -362,6 +392,10 @@ export default function InventoryDetailPage() {
       ? totalActiveQuantity
       : Math.max(totalActiveQuantity - parsedSaleQuantity, 0);
   const saleExceedsStock = parsedSaleQuantity !== null && parsedSaleQuantity > totalActiveQuantity;
+  const salePreview = useMemo(
+    () => buildSalePreview(product?.lots ?? [], parsedSaleQuantity),
+    [parsedSaleQuantity, product?.lots],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -938,6 +972,31 @@ export default function InventoryDetailPage() {
             </p>
           ) : null}
         </div>
+        {parsedSaleQuantity !== null && totalActiveQuantity > 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-3 text-sm text-slate-700">
+            <p className="font-medium text-[var(--color-text)]">FIFO消し込み予定</p>
+            {!salePreview.length ? (
+              <p className="mt-2 text-[var(--color-danger)]">引当できるロットがありません。</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {salePreview.map((lot) => (
+                  <div
+                    key={`sale-preview-${lot.lotId}`}
+                    className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-2"
+                  >
+                    <div>
+                      <p className="font-medium">期限 {formatDateLabel(lot.expiryDate)}</p>
+                      <p className="text-xs text-slate-500">
+                        売上前 {lot.beforeQuantity}個 → 売上後 {lot.afterQuantity}個
+                      </p>
+                    </div>
+                    <Badge tone="info">-{lot.consumeQuantity}個</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
           <div className="space-y-2">
             <FieldLabel>売上日</FieldLabel>
