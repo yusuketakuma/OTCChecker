@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -316,16 +316,14 @@ export default function ImportPage() {
     );
   }
 
-  async function loadUnmatched() {
+  const loadUnmatched = useCallback(async () => {
     const rows = await fetchJson<UnmatchedRow[]>("/api/unmatched");
     applyUnmatchedRows(rows);
-  }
+  }, []);
 
   useEffect(() => {
-    fetchJson<UnmatchedRow[]>("/api/unmatched")
-      .then(applyUnmatchedRows)
-      .catch(() => undefined);
-  }, [message]);
+    loadUnmatched().catch(() => undefined);
+  }, [loadUnmatched]);
 
   async function previewFile() {
     if (!file) {
