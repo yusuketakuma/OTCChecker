@@ -14,6 +14,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Project-specific generated artifacts:
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "prisma/e2e.db*",
   ]),
 ]);
 

@@ -166,18 +166,21 @@ export default function InventoryPage() {
               </Link>
               <div className="grid gap-2 sm:grid-cols-3">
                 <Link
+                  aria-label={`${item.name}の入荷登録を開く`}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
                   href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
                 >
                   入荷する
                 </Link>
                 <Link
+                  aria-label={`${item.name}の在庫編集を開く`}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
                   href={`/inventory/${item.productId}`}
                 >
                   在庫編集
                 </Link>
                 <Link
+                  aria-label={`${item.name}の詳細を見る`}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
                   href={`/inventory/${item.productId}`}
                 >
