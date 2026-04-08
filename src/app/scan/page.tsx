@@ -147,6 +147,15 @@ function ScanPageContent() {
     }
   }
 
+  function clearJanInput() {
+    setJanCode("");
+    setLookupState({ status: "idle", janCode: "" });
+    setName("");
+    setSpec("");
+    setMessage("");
+    setSubmitError("");
+  }
+
   function pushRecentScan(value: string) {
     setRecentScans((current) => {
       const next = [value, ...current.filter((item) => item !== value)].slice(0, 5);
@@ -428,14 +437,26 @@ function ScanPageContent() {
           <Badge tone={lookupTone}>{lookupLabel}</Badge>
         </div>
         <div className="grid gap-3">
-          <Input
-            disabled={isSubmitting}
-            {...janInputProps}
-            enterKeyHint="next"
-            value={janCode}
-            onChange={(event) => handleJanChange(event.target.value)}
-            placeholder="JANコード"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              disabled={isSubmitting}
+              {...janInputProps}
+              enterKeyHint="next"
+              value={janCode}
+              onChange={(event) => handleJanChange(event.target.value)}
+              placeholder="JANコード"
+            />
+            {janCode ? (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-slate-100 px-4 text-sm font-medium text-slate-700 disabled:opacity-50"
+                onClick={clearJanInput}
+              >
+                クリア
+              </button>
+            ) : null}
+          </div>
           <Input
             disabled={!isOnline || isSubmitting || isLookupPending || Boolean(product)}
             value={name}
