@@ -25,7 +25,6 @@ export async function PUT(request: Request) {
     const normalizedData = {
       ...parsed.data,
       defaultAlertDays: parsed.data.defaultAlertDays,
-      lineTargetId: parsed.data.lineTargetId,
     };
 
     const updated = await prisma.appSettings.upsert({

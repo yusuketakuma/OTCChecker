@@ -13,6 +13,7 @@ type DashboardSummary = {
   expiredCount: number;
   within7Count: number;
   within30Count: number;
+  unmatchedCount: number;
   alertLots: Array<{
     lotId: string;
     productId: string;
@@ -29,6 +30,7 @@ const cardConfig = [
   { key: "expiredCount", label: "期限切れ", tone: "danger", href: "/inventory?bucket=expired" },
   { key: "within7Count", label: "7日以内", tone: "warning", href: "/inventory?bucket=7d" },
   { key: "within30Count", label: "30日以内", tone: "info", href: "/inventory?bucket=30d" },
+  { key: "unmatchedCount", label: "未割当", tone: "neutral", href: "/import" },
 ] as const;
 
 export default function DashboardPage() {
@@ -49,11 +51,11 @@ export default function DashboardPage() {
         description="期限切れ、7日以内、30日以内を最初に確認し、期限の近いロットから処理します。"
       />
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cardConfig.map((item) => (
           <Link href={item.href} key={item.key}>
             <Card className="h-full bg-white/95 transition hover:-translate-y-0.5">
-              <Badge tone={item.tone as "danger" | "warning" | "info"}>{item.label}</Badge>
+              <Badge tone={item.tone as "danger" | "warning" | "info" | "neutral"}>{item.label}</Badge>
               <div className="mt-4 flex items-end justify-between">
                 <div>
                   <CardTitle className="text-4xl">

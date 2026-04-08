@@ -105,11 +105,15 @@ export async function getDashboardSummary() {
     include: { product: true },
     orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
+  const unmatchedCount = await prisma.unmatchedSale.count({
+    where: { resolved: false },
+  });
 
   const summary = {
     expiredCount: 0,
     within7Count: 0,
     within30Count: 0,
+    unmatchedCount,
     alertLots: [] as Array<{
       lotId: string;
       productId: string;

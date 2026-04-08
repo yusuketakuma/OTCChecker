@@ -36,19 +36,6 @@ enum UnmatchedReason {
   MANUAL_RESOLUTION
 }
 
-enum LineTargetType {
-  NONE
-  USER
-  GROUP
-  ROOM
-}
-
-enum NotificationDeliveryStatus {
-  SENT
-  SKIPPED
-  FAILED
-}
-
 model Product {
   id        String         @id @default(uuid()) @db.Uuid
   name      String
@@ -198,26 +185,9 @@ model AdjustmentRecord {
 }
 
 model AppSettings {
-  id               String         @id @default("singleton")
-  defaultAlertDays Int[]          @default([30, 7, 0])
-  timezone         String         @default("Asia/Tokyo")
-  lineTargetType   LineTargetType @default(NONE)
-  lineTargetId     String?
-  lineEnabled      Boolean        @default(false)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-}
-
-model NotificationDeliveryLog {
-  id           String                     @id @default(uuid()) @db.Uuid
-  businessDate DateTime                   @db.Date
-  status       NotificationDeliveryStatus
-  reason       String
-  targetId     String?
-  lotCount     Int                        @default(0)
-  payload      Json?
-  createdAt    DateTime                   @default(now())
-
-  @@index([businessDate, createdAt])
-  @@index([status, createdAt])
+  id               String   @id @default("singleton")
+  defaultAlertDays Int[]    @default([30, 7, 0])
+  timezone         String   @default("Asia/Tokyo")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

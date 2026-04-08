@@ -60,6 +60,8 @@ export default function InventoryDetailPage() {
   const [adjustReasons, setAdjustReasons] = useState<Record<string, string>>({});
   const [disposeDrafts, setDisposeDrafts] = useState<Record<string, number>>({});
   const [disposeReasons, setDisposeReasons] = useState<Record<string, string>>({});
+  const [receiptExpiryDate, setReceiptExpiryDate] = useState("");
+  const [receiptQuantity, setReceiptQuantity] = useState(1);
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
 
   const load = useCallback(async () => {
@@ -77,6 +79,8 @@ export default function InventoryDetailPage() {
       setDisposeReasons(
         Object.fromEntries(detail.lots.map((lot) => [lot.id, "期限近接による廃棄"])),
       );
+      setReceiptExpiryDate(detail.lots[0]?.expiryDate.slice(0, 10) ?? "");
+      setReceiptQuantity(1);
       setError("");
     } catch (cause) {
       setError((cause as Error).message);
@@ -220,6 +224,24 @@ export default function InventoryDetailPage() {
     }
   }
 
+  async function receiveStock() {
+    if (!product || !receiptExpiryDate) {
+      setError("入荷登録には期限日が必要です。");
+      return;
+    }
+
+    try {
+      await postJson("/api/lots", {
+        productId: product.id,
+        expiryDate: receiptExpiryDate,
+        quantity: receiptQuantity,
+      });
+      await load();
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -249,6 +271,29 @@ export default function InventoryDetailPage() {
         <Button disabled={!isOnline || saving} onClick={saveProduct}>
           商品マスタを更新
         </Button>
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>手動入荷登録</CardTitle>
+        <CardDescription>バーコードが使えない場合も、この商品へ直接入荷を追加できます。</CardDescription>
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
+          <Input
+            disabled={!isOnline}
+            type="date"
+            value={receiptExpiryDate}
+            onChange={(event) => setReceiptExpiryDate(event.target.value)}
+          />
+          <Input
+            disabled={!isOnline}
+            type="number"
+            min={1}
+            value={receiptQuantity}
+            onChange={(event) => setReceiptQuantity(Math.max(1, Number(event.target.value)))}
+          />
+          <Button disabled={!isOnline || !receiptExpiryDate} onClick={receiveStock}>
+            入荷登録
+          </Button>
+        </div>
       </Card>
 
       <section className="space-y-3">

@@ -9,7 +9,6 @@
 - Tailwind CSS
 - Prisma
 - PostgreSQL / Supabase
-- LINE Messaging API
 - PWA manifest
 
 ## セットアップ
@@ -37,6 +36,14 @@ npm run dev
 - `/import` CSV 取込
 - `/settings` 運用設定
 
+## 優先運用
+
+- ダッシュボードで期限切れ、7日以内、30日以内を確認
+- `/scan` または在庫詳細から入荷登録
+- `/import` で売上 CSV を FIFO 消し込み
+- 未割当一覧を確認して手動解決
+- 在庫詳細で廃棄、調整、入荷、売上履歴を監査
+
 ## API
 
 - `GET /api/dashboard/summary`
@@ -51,11 +58,7 @@ npm run dev
 - `POST /api/import/execute`
 - `GET /api/unmatched`
 - `PUT /api/unmatched/[id]/resolve`
-- `POST /api/alerts/check`
-- `GET /api/alerts/log`
-- `POST /api/line/test`
-- `POST /api/line/webhook`
-
+- `GET/PUT /api/settings`
 ## 検証
 
 ```bash

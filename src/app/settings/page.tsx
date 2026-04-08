@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { PageHeader } from "@/components/app/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,17 +11,12 @@ import { fetchJson, putJson } from "@/lib/client";
 
 type Settings = {
   defaultAlertDays: number[];
-  lineTargetType: "NONE" | "USER" | "GROUP" | "ROOM";
-  lineTargetId: string | null;
-  lineEnabled: boolean;
 };
 
 export default function SettingsPage() {
   const isOnline = useOnlineStatus();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [alertDays, setAlertDays] = useState("30,7,0");
-  const [lineTargetId, setLineTargetId] = useState("");
-  const [lineEnabled, setLineEnabled] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -31,8 +25,6 @@ export default function SettingsPage() {
       .then((data) => {
         setSettings(data);
         setAlertDays(data.defaultAlertDays.join(","));
-        setLineTargetId(data.lineTargetId ?? "");
-        setLineEnabled(data.lineEnabled);
       })
       .catch((cause) => setError(cause.message));
   }, []);
@@ -48,13 +40,6 @@ export default function SettingsPage() {
           .split(",")
           .map((item) => Number(item.trim()))
           .filter((item) => Number.isFinite(item)),
-        lineTargetType: lineTargetId
-          ? settings.lineTargetType === "NONE"
-            ? "USER"
-            : settings.lineTargetType
-          : "NONE",
-        lineTargetId: lineTargetId || null,
-        lineEnabled,
       });
       setSettings(updated);
       setMessage("設定を保存しました。");
@@ -64,74 +49,44 @@ export default function SettingsPage() {
     }
   }
 
-  async function testLine() {
-    const response = await fetch("/api/line/test", { method: "POST" });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      setError(payload.error ?? "テスト通知に失敗しました");
-      return;
-    }
-
-    setMessage("LINE テスト通知を送信しました。");
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Settings"
         title="運用設定"
-        description="既定アラート、LINE 通知、PWA インストール導線を店舗運用に合わせて調整します。"
+        description="既定アラート日数、CSV 取込前提、PWA インストール導線を店舗運用に合わせて調整します。"
       />
 
       <Card className="space-y-4">
         <CardTitle>既定アラート閾値</CardTitle>
         <CardDescription>新規 SKU にだけ適用されます。カンマ区切りで入力してください。</CardDescription>
         <Input disabled={!isOnline} value={alertDays} onChange={(event) => setAlertDays(event.target.value)} />
+        <Button className="w-full" disabled={!isOnline} onClick={save}>
+          設定を保存
+        </Button>
       </Card>
 
       <Card className="space-y-4">
-        <CardTitle>LINE 通知</CardTitle>
-        <CardDescription>
-          Webhook で取得した通知先 ID を保存します。アクセストークンは環境変数管理です。
-        </CardDescription>
-        <div className="flex flex-wrap gap-2">
-          <Badge tone={settings?.lineEnabled ? "success" : "neutral"}>
-            {settings?.lineEnabled ? "通知有効" : "通知無効"}
-          </Badge>
-          <Badge tone={settings?.lineTargetId ? "info" : "warning"}>
-            {settings?.lineTargetId ? `通知先: ${settings.lineTargetType}` : "通知先未設定"}
-          </Badge>
+        <CardTitle>CSV 取込ルール</CardTitle>
+        <CardDescription>POS 連携なしの前提で、売上 CSV を日次または随時で取り込みます。</CardDescription>
+        <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+          <p>受入ヘッダ: `JANコード, 商品名, 数量, 取引日, 取引ID`</p>
+          <p className="mt-2">文字コード: UTF-8 / Shift_JIS</p>
+          <p className="mt-2">重複行は自動検知し、未一致や在庫不足は未割当一覧へ残ります。</p>
         </div>
-        <Input
-          disabled={!isOnline}
-          value={lineTargetId}
-          onChange={(event) => setLineTargetId(event.target.value)}
-          placeholder="通知先 ID"
-        />
-        <p className="text-sm text-slate-500">
-          保存中の種別: {settings?.lineTargetType ?? "NONE"} / ID: {settings?.lineTargetId ?? "-"}
-        </p>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input
-            checked={lineEnabled}
-            disabled={!isOnline}
-            onChange={(event) => setLineEnabled(event.target.checked)}
-            type="checkbox"
-          />
-          LINE 通知を有効化
-        </label>
-        <div className="flex gap-3">
-          <Button className="flex-1" disabled={!isOnline} onClick={save}>
-            設定を保存
-          </Button>
-          <Button className="flex-1" disabled={!isOnline} variant="secondary" onClick={testLine}>
-            テスト通知
-          </Button>
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>運用メモ</CardTitle>
+        <CardDescription>OTC 商品管理の優先運用に絞っています。</CardDescription>
+        <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+          <p>1. 入荷は `/scan` または在庫詳細の手動登録から行う</p>
+          <p className="mt-2">2. 日々の確認はダッシュボードの期限切れ・7日以内・30日以内を使う</p>
+          <p className="mt-2">3. 売上 CSV 実行後は未割当一覧を確認して手動解決する</p>
         </div>
         {!isOnline ? (
           <p className="text-sm text-[var(--color-danger)]">
-            オフライン中は設定変更と通知テストを停止しています。
+            オフライン中は設定変更を停止しています。
           </p>
         ) : null}
       </Card>

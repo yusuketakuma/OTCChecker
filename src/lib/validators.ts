@@ -1,4 +1,3 @@
-import { LineTargetType } from "@prisma/client";
 import { z } from "zod";
 
 import { normalizeJanCode } from "@/lib/csv";
@@ -51,13 +50,6 @@ export const disposeSchema = z.object({
 
 export const settingsSchema = z.object({
   defaultAlertDays: alertDaysSchema,
-  lineTargetType: z.nativeEnum(LineTargetType),
-  lineTargetId: z
-    .string()
-    .trim()
-    .nullable()
-    .transform((value) => (value ? value : null)),
-  lineEnabled: z.boolean(),
 });
 
 export const unmatchedResolveSchema = z.object({
