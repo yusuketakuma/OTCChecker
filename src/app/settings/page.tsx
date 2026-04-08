@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [alertDays, setAlertDays] = useState("30,7,0");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [isInstalled, setIsInstalled] = useState(false);
   const alertDaysInput = parseAlertDaysInput(alertDays);
 
   useEffect(() => {
@@ -46,6 +47,25 @@ export default function SettingsPage() {
       .catch(() => {
         // Keep settings usable even if version metadata cannot be loaded.
       });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(display-mode: standalone)");
+    const syncInstalled = () => {
+      const iosStandalone = Boolean(
+        (window.navigator as Navigator & { standalone?: boolean }).standalone,
+      );
+      setIsInstalled(mediaQuery.matches || iosStandalone);
+    };
+
+    syncInstalled();
+    mediaQuery.addEventListener("change", syncInstalled);
+
+    return () => mediaQuery.removeEventListener("change", syncInstalled);
   }, []);
 
   async function save() {
@@ -140,13 +160,34 @@ export default function SettingsPage() {
         )}
       </Card>
 
-      <Card className="space-y-3">
-        <CardTitle>PWA インストール手順</CardTitle>
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle>PWA インストール手順</CardTitle>
+            <CardDescription>iPhone のホーム画面から直接開けるようにします。</CardDescription>
+          </div>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              isInstalled
+                ? "bg-emerald-100 text-emerald-800"
+                : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {isInstalled ? "インストール済み" : "Safariで利用中"}
+          </span>
+        </div>
         <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600">
           <li>Safari でこのアプリを開く</li>
-          <li>共有ボタンを押す</li>
+          <li>画面下の共有ボタンを押す</li>
           <li>「ホーム画面に追加」を選ぶ</li>
+          <li>追加後はホーム画面のアイコンから開く</li>
         </ol>
+        <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+          <p>確認ポイント</p>
+          <p className="mt-2">- ホーム画面起動だと Safari のアドレスバーが出ません。</p>
+          <p className="mt-2">- 店頭運用ではホーム画面起動を固定すると再開が速くなります。</p>
+          <p className="mt-2">- 共有メニューに追加項目が出ない場合は Safari で開き直してください。</p>
+        </div>
       </Card>
 
       {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
