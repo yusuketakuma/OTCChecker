@@ -206,6 +206,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 
 export default function ImportPage() {
   const isOnline = useOnlineStatus();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const unmatchedSectionRef = useRef<HTMLElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
@@ -287,6 +288,14 @@ export default function ImportPage() {
 
   function scrollToUnmatchedSection() {
     unmatchedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function clearSelectedFile() {
+    setFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   function clearBulkReceiptDefaults() {
@@ -397,7 +406,7 @@ export default function ImportPage() {
 
       setMessage("CSV 消し込みが完了しました。未割当があればこの下に表示します。");
       setPreview(null);
-      setFile(null);
+      clearSelectedFile();
       setError("");
       await loadUnmatched();
       scrollToUnmatchedSection();
@@ -597,15 +606,23 @@ export default function ImportPage() {
         <CardTitle>ファイル選択</CardTitle>
         <CardDescription>iPhone の「ファイル」アプリから CSV を選択できます。</CardDescription>
         <Input
+          ref={fileInputRef}
           accept=".csv,text/csv"
           disabled={!isOnline}
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           type="file"
         />
         {file ? (
-          <p className="text-sm text-slate-500">
-            選択中: {file.name}
-          </p>
+          <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
+            <p>選択中: {file.name}</p>
+            <button
+              type="button"
+              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition active:scale-[0.99]"
+              onClick={clearSelectedFile}
+            >
+              選択をクリア
+            </button>
+          </div>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <Button className="flex-1" disabled={!isOnline || !file || previewing} onClick={previewFile}>
