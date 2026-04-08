@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -206,6 +206,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 
 export default function ImportPage() {
   const isOnline = useOnlineStatus();
+  const unmatchedSectionRef = useRef<HTMLElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [unmatched, setUnmatched] = useState<UnmatchedRow[]>([]);
@@ -284,6 +285,10 @@ export default function ImportPage() {
     writeStoredReceiptDefaults(bulkExpiryDate, parsedBulkQuantity ?? 1);
   }, [bulkExpiryDate, bulkReceiptQuantity]);
 
+  function scrollToUnmatchedSection() {
+    unmatchedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function clearBulkReceiptDefaults() {
     setBulkExpiryDate("");
     setBulkReceiptQuantity("1");
@@ -327,6 +332,18 @@ export default function ImportPage() {
   useEffect(() => {
     loadUnmatched().catch(() => undefined);
   }, [loadUnmatched]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#unmatched-list") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      scrollToUnmatchedSection();
+    }, 100);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [unmatched.length]);
 
   async function previewFile() {
     if (!file) {
@@ -378,11 +395,12 @@ export default function ImportPage() {
         return;
       }
 
-      setMessage("CSV 消し込みが完了しました。");
+      setMessage("CSV 消し込みが完了しました。未割当があればこの下に表示します。");
       setPreview(null);
       setFile(null);
       setError("");
       await loadUnmatched();
+      scrollToUnmatchedSection();
     } finally {
       setExecuting(false);
     }
@@ -692,7 +710,7 @@ export default function ImportPage() {
         </Card>
       ) : null}
 
-      <section className="scroll-mt-24 space-y-3" id="unmatched-list">
+      <section className="scroll-mt-24 space-y-3" id="unmatched-list" ref={unmatchedSectionRef}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[var(--color-text)]">未割当一覧</h2>
           <Badge tone="neutral">{filteredUnmatched.length}/{unmatched.length}件</Badge>
