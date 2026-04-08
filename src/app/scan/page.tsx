@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { PageHeader } from "@/components/app/page-header";
@@ -91,6 +91,7 @@ function ScanPageContent() {
   const isOnline = useOnlineStatus();
   const lookupJanCodeRef = useRef("");
   const appliedPrefillRef = useRef(false);
+  const janInputRef = useRef<HTMLInputElement | null>(null);
   const normalizedJanCode = normalizeJanCode(janCode);
   const parsedQuantity = parsePositiveIntegerInput(quantity);
   const quickQuantityPresets = useMemo(() => {
@@ -202,6 +203,12 @@ function ScanPageContent() {
   useEffect(() => {
     writeStoredReceiptDefaults(expiryDate, parsedQuantity ?? 1);
   }, [expiryDate, parsedQuantity]);
+
+  useEffect(() => {
+    if (!isSubmitting && !janCode) {
+      janInputRef.current?.focus();
+    }
+  }, [isSubmitting, janCode]);
 
   useEffect(() => {
     if (appliedPrefillRef.current) {
@@ -325,6 +332,15 @@ function ScanPageContent() {
     setSubmitError("");
   }
 
+  function handleQuantityKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter" || !canSubmit) {
+      return;
+    }
+
+    event.preventDefault();
+    void submit();
+  }
+
   async function submit() {
     if (parsedQuantity === null) {
       setSubmitError("数量は1以上の整数で入力してください。");
@@ -444,6 +460,7 @@ function ScanPageContent() {
         <div className="grid gap-3">
           <div className="flex items-center gap-2">
             <Input
+              ref={janInputRef}
               disabled={isSubmitting}
               {...janInputProps}
               enterKeyHint="next"
@@ -513,9 +530,10 @@ function ScanPageContent() {
               disabled={!isOnline || isSubmitting}
               className="text-center"
               {...positiveIntegerInputProps}
-              enterKeyHint="done"
+              enterKeyHint={canSubmit ? "send" : "done"}
               value={quantity}
               onChange={(event) => setQuantity(event.target.value)}
+              onKeyDown={handleQuantityKeyDown}
             />
             <Button
               disabled={!isOnline || isSubmitting}
