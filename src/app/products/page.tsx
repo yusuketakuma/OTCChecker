@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { Suspense, startTransition, useDeferredValue, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -42,18 +42,23 @@ type ProductCreateResult = {
   action: "created" | "created-with-lot" | "existing" | "received-on-existing";
 };
 
-export default function ProductsPage() {
+function buildProductSearchParams(query: string) {
+  const params = new URLSearchParams();
+
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+
+  return params;
+}
+
+function ProductsPageContent({ initialQuery }: { initialQuery: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isOnline = useOnlineStatus();
   const [items, setItems] = useState<ProductMasterSummary[]>([]);
-  const [query, setQuery] = useState(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-
-    return new URLSearchParams(window.location.search).get("q") ?? "";
-  });
+  const [query, setQuery] = useState(initialQuery);
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
   const [janCode, setJanCode] = useState("");
@@ -95,18 +100,19 @@ export default function ProductsPage() {
   }, [deferredQuery]);
 
   useEffect(() => {
-    const params = new URLSearchParams();
+    const nextParams = buildProductSearchParams(query);
+    const currentParams = buildProductSearchParams(searchParams.get("q") ?? "");
 
-    if (query.trim()) {
-      params.set("q", query.trim());
+    if (nextParams.toString() === currentParams.toString()) {
+      return;
     }
 
-    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    const nextUrl = nextParams.toString() ? `${pathname}?${nextParams.toString()}` : pathname;
 
     startTransition(() => {
       router.replace(nextUrl, { scroll: false });
     });
-  }, [pathname, query, router]);
+  }, [pathname, query, router, searchParams]);
 
   async function createProduct() {
     if (expiryDate && initialLotQuantity === null) {
@@ -371,5 +377,20 @@ export default function ProductsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function ProductsPageShell() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+
+  return <ProductsPageContent key={initialQuery} initialQuery={initialQuery} />;
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6" />}>
+      <ProductsPageShell />
+    </Suspense>
   );
 }

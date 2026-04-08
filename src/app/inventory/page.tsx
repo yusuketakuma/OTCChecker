@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { Suspense, startTransition, useDeferredValue, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -30,24 +30,41 @@ const tabs = [
   { key: "30d", label: "30日以内" },
 ] as const;
 
-export default function InventoryPage() {
+type InventoryTabKey = (typeof tabs)[number]["key"];
+
+function normalizeBucket(value: string | null): InventoryTabKey {
+  return tabs.some((tab) => tab.key === value)
+    ? (value as InventoryTabKey)
+    : "all";
+}
+
+function buildInventorySearchParams(query: string, bucket: InventoryTabKey) {
+  const params = new URLSearchParams();
+
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+
+  if (bucket !== "all") {
+    params.set("bucket", bucket);
+  }
+
+  return params;
+}
+
+function InventoryPageContent({
+  initialQuery,
+  initialBucket,
+}: {
+  initialQuery: string;
+  initialBucket: InventoryTabKey;
+}) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<InventoryRow[]>([]);
-  const [query, setQuery] = useState(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-
-    return new URLSearchParams(window.location.search).get("q") ?? "";
-  });
-  const [bucket, setBucket] = useState(() => {
-    if (typeof window === "undefined") {
-      return "all";
-    }
-
-    return new URLSearchParams(window.location.search).get("bucket") ?? "all";
-  });
+  const [query, setQuery] = useState(initialQuery);
+  const [bucket, setBucket] = useState<InventoryTabKey>(initialBucket);
   const [error, setError] = useState("");
   const deferredQuery = useDeferredValue(query);
 
@@ -72,22 +89,22 @@ export default function InventoryPage() {
   }, [deferredQuery, bucket]);
 
   useEffect(() => {
-    const params = new URLSearchParams();
+    const nextParams = buildInventorySearchParams(query, bucket);
+    const currentParams = buildInventorySearchParams(
+      searchParams.get("q") ?? "",
+      normalizeBucket(searchParams.get("bucket")),
+    );
 
-    if (query.trim()) {
-      params.set("q", query.trim());
+    if (nextParams.toString() === currentParams.toString()) {
+      return;
     }
 
-    if (bucket !== "all") {
-      params.set("bucket", bucket);
-    }
-
-    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    const nextUrl = nextParams.toString() ? `${pathname}?${nextParams.toString()}` : pathname;
 
     startTransition(() => {
       router.replace(nextUrl, { scroll: false });
     });
-  }, [bucket, pathname, query, router]);
+  }, [bucket, pathname, query, router, searchParams]);
 
   return (
     <div className="space-y-6">
@@ -192,5 +209,27 @@ export default function InventoryPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function InventoryPageShell() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+  const initialBucket = normalizeBucket(searchParams.get("bucket"));
+
+  return (
+    <InventoryPageContent
+      key={`${initialQuery}:${initialBucket}`}
+      initialBucket={initialBucket}
+      initialQuery={initialQuery}
+    />
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6" />}>
+      <InventoryPageShell />
+    </Suspense>
   );
 }
