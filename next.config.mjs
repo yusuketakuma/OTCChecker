@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageJson = JSON.parse(readFileSync(path.join(__dirname, "package.json"), "utf8"));
@@ -22,6 +24,7 @@ function readGitSha() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   env: {
     NEXT_PUBLIC_BUILD_VERSION: packageJson.version,
     NEXT_PUBLIC_BUILD_SHA: readGitSha(),
