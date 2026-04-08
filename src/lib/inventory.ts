@@ -627,7 +627,7 @@ export async function executeManualSale(params: {
   });
 }
 
-async function receiveStockInTx(
+export async function receiveStockInTx(
   tx: Prisma.TransactionClient,
   params: { productId: string; expiryDate: string; quantity: number },
 ) {
@@ -636,16 +636,22 @@ async function receiveStockInTx(
     where: {
       productId: params.productId,
       expiryDate,
-      status: InventoryLotStatus.ACTIVE,
+      status: {
+        in: [InventoryLotStatus.ACTIVE, InventoryLotStatus.ARCHIVED],
+      },
     },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 
   if (existing) {
+    const nextQuantity = existing.quantity + params.quantity;
     const lot = await tx.inventoryLot.update({
       where: { id: existing.id },
       data: {
-        quantity: existing.quantity + params.quantity,
+        quantity: nextQuantity,
         initialQuantity: existing.initialQuantity + params.quantity,
+        status: nextQuantity > 0 ? InventoryLotStatus.ACTIVE : existing.status,
+        archivedAt: nextQuantity > 0 ? null : existing.archivedAt,
         version: { increment: 1 },
       },
     });

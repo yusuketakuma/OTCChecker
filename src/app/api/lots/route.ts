@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/api";
-import { parseDateOnly } from "@/lib/date";
+import { receiveStockInTx } from "@/lib/inventory";
 import { lotCreateSchema } from "@/lib/validators";
 import { getPrisma } from "@/lib/prisma";
 
@@ -33,7 +33,6 @@ export async function POST(request: Request) {
       return fail(400, "INVALID_LOT", "ロット入力が不正です", parsed.error.flatten());
     }
 
-    const expiryDate = parseDateOnly(parsed.data.expiryDate);
     const result = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
         where: { id: parsed.data.productId },
@@ -44,53 +43,11 @@ export async function POST(request: Request) {
         throw new Error("PRODUCT_NOT_FOUND");
       }
 
-      const existing = await tx.inventoryLot.findFirst({
-        where: {
-          productId: parsed.data.productId,
-          expiryDate,
-          status: "ACTIVE",
-        },
+      return receiveStockInTx(tx, {
+        productId: parsed.data.productId,
+        expiryDate: parsed.data.expiryDate,
+        quantity: parsed.data.quantity,
       });
-
-      const quantity = parsed.data.quantity;
-
-      if (existing) {
-        const lot = await tx.inventoryLot.update({
-          where: { id: existing.id },
-          data: {
-            quantity: existing.quantity + quantity,
-            initialQuantity: existing.initialQuantity + quantity,
-            version: { increment: 1 },
-          },
-        });
-
-        await tx.receiptRecord.create({
-          data: {
-            lotId: existing.id,
-            quantity,
-          },
-        });
-
-        return lot;
-      }
-
-      const lot = await tx.inventoryLot.create({
-        data: {
-          productId: parsed.data.productId,
-          expiryDate,
-          quantity,
-          initialQuantity: parsed.data.initialQuantity ?? quantity,
-        },
-      });
-
-      await tx.receiptRecord.create({
-        data: {
-          lotId: lot.id,
-          quantity,
-        },
-      });
-
-      return lot;
     });
 
     return ok(result);
