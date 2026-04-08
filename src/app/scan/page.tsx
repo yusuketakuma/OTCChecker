@@ -45,6 +45,8 @@ const expiryPresets = [
   { label: "+180日", days: 180 },
 ] as const;
 
+const quantityPresets = [1, 3, 5, 10] as const;
+
 function readStoredReceiptDefaults() {
   if (typeof window === "undefined") {
     return { expiryDate: "", quantity: "1" };
@@ -169,6 +171,15 @@ function ScanPageContent() {
       window.localStorage.setItem(recentScanStorageKey, JSON.stringify(next));
       return next;
     });
+  }
+
+  function clearReceiptDefaults() {
+    setExpiryDate("");
+    setQuantity("1");
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(receiptDefaultsStorageKey);
+    }
   }
 
   useEffect(() => {
@@ -477,14 +488,39 @@ function ScanPageContent() {
               +
             </Button>
           </div>
+          <div className="flex flex-wrap gap-2">
+            {quantityPresets.map((preset) => (
+              <button
+                key={`scan-qty-${preset}`}
+                type="button"
+                disabled={!isOnline || isSubmitting}
+                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                onClick={() => setQuantity(String(preset))}
+              >
+                {preset}個
+              </button>
+            ))}
+          </div>
         </div>
         <p className="text-sm text-slate-500">{helperText}</p>
         {(expiryDate || (parsedQuantity ?? 1) > 1) ? (
           <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900">
-            <p className="font-medium">前回の入荷条件を保持中</p>
-            <p className="mt-1">
-              期限日 {expiryDate || "未設定"} / 数量 {parsedQuantity ?? 1}個
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">前回の入荷条件を保持中</p>
+                <p className="mt-1">
+                  期限日 {expiryDate || "未設定"} / 数量 {parsedQuantity ?? 1}個
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!isOnline || isSubmitting}
+                className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-emerald-900 ring-1 ring-emerald-200 disabled:opacity-50"
+                onClick={clearReceiptDefaults}
+              >
+                保持をクリア
+              </button>
+            </div>
           </div>
         ) : null}
         <Button className="w-full" disabled={!canSubmit} onClick={submit}>
