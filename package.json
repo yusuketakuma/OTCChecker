@@ -11,7 +11,7 @@
     "cf:deploy": "npm run cf:build && wrangler deploy",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "postinstall": "prisma generate"
