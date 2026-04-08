@@ -879,7 +879,7 @@ export default function InventoryDetailPage() {
               const deleteConfirmOpen = pendingDeleteLotId === lot.id;
 
               return (
-                <Card className="space-y-4" key={lot.id}>
+                <Card className="space-y-4 scroll-mt-24" id={`lot-${lot.id}`} key={lot.id}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>
