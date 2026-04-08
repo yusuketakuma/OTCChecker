@@ -181,6 +181,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-slate-600">
                         期限 {lot.expiryDate} / 残 {lot.quantity}個
                       </p>
+                      <p className="text-xs text-slate-500">JAN {lot.janCode}</p>
                     </div>
                     <Badge
                       tone={
@@ -199,12 +200,18 @@ export default function DashboardPage() {
                     </Badge>
                   </div>
                 </Link>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-3">
                   <Link
                     href={`/scan?jan=${encodeURIComponent(lot.janCode)}&name=${encodeURIComponent(lot.productName)}&spec=${encodeURIComponent(lot.spec)}&quantity=1`}
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
                   >
                     入荷する
+                  </Link>
+                  <Link
+                    href={`/inventory/${lot.productId}#manual-sale`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  >
+                    売上登録
                   </Link>
                   <Link
                     href={`/inventory/${lot.productId}`}
