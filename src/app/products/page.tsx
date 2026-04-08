@@ -268,15 +268,26 @@ function ProductsPageContent({
           <CardTitle>商品検索</CardTitle>
           <CardDescription>名前・規格・JANで商品マスタを絞り込みます。</CardDescription>
         </div>
-        <div className="space-y-2">
-          <FormLabel htmlFor="products-search">商品を検索</FormLabel>
-          <Input
-            aria-label="商品を検索"
-            id="products-search"
-            placeholder="商品名・JANコード"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <FormLabel htmlFor="products-search">商品を検索</FormLabel>
+            <Input
+              aria-label="商品を検索"
+              id="products-search"
+              placeholder="商品名・規格・JANコード"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          {query ? (
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-slate-100 px-4 text-sm font-medium text-slate-700 transition active:scale-[0.99]"
+              onClick={() => setQuery("")}
+            >
+              検索をクリア
+            </button>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {productFilters.map((item) => (
@@ -295,6 +306,15 @@ function ProductsPageContent({
             </button>
           ))}
         </div>
+        {filter !== "all" ? (
+          <button
+            type="button"
+            className="inline-flex h-10 items-center justify-center rounded-full bg-slate-100 px-4 text-sm font-medium text-slate-700 transition active:scale-[0.99]"
+            onClick={() => setFilter("all")}
+          >
+            絞り込みを解除
+          </button>
+        ) : null}
       </Card>
 
       <Card className="space-y-4">
