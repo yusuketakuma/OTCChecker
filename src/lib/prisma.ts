@@ -1,31 +1,50 @@
-import { PrismaClient } from "@prisma/client/wasm";
-import { PrismaD1 } from "@prisma/adapter-d1";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
+type PrismaClientInstance = Awaited<ReturnType<typeof createNodePrismaClient>>;
+
 const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
+  prisma?: PrismaClientInstance;
 };
 
-function createNodePrismaClient() {
+function getPrismaLogLevels(): Array<"error" | "warn"> {
+  return process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"];
+}
+
+async function createNodePrismaClient() {
+  const { PrismaClient } = await import("@prisma/client");
+
   return new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    log: getPrismaLogLevels(),
   });
 }
 
+async function createCloudflarePrismaClient(db: unknown) {
+  const [{ PrismaClient }, { PrismaD1 }] = await Promise.all([
+    import("@prisma/client/edge"),
+    import("@prisma/adapter-d1"),
+  ]);
+
+  const adapter = new PrismaD1(db as ConstructorParameters<typeof PrismaD1>[0]);
+
+  return new PrismaClient({
+    adapter,
+    log: getPrismaLogLevels(),
+  }) as unknown as PrismaClientInstance;
+}
+
 async function createPrismaClient() {
+  if (process.env.DATABASE_URL) {
+    return globalForPrisma.prisma ?? createNodePrismaClient();
+  }
+
   try {
     const { env } = await getCloudflareContext({ async: true });
     const cloudflareEnv = env as {
-      DB?: ConstructorParameters<typeof PrismaD1>[0];
+      DB?: unknown;
     };
 
     if (cloudflareEnv.DB) {
-      const adapter = new PrismaD1(cloudflareEnv.DB);
-
-      return new PrismaClient({
-        adapter,
-        log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-      });
+      return createCloudflarePrismaClient(cloudflareEnv.DB);
     }
   } catch {
     // Fall through to local Node.js / Next.js development using sqlite DATABASE_URL.
