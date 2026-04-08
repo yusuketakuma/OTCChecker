@@ -692,7 +692,7 @@ export default function ImportPage() {
         </Card>
       ) : null}
 
-      <section className="space-y-3">
+      <section className="scroll-mt-24 space-y-3" id="unmatched-list">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[var(--color-text)]">未割当一覧</h2>
           <Badge tone="neutral">{filteredUnmatched.length}/{unmatched.length}件</Badge>

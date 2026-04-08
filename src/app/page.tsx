@@ -53,7 +53,7 @@ const cardConfig = [
     label: "未割当",
     detail: "CSV要確認",
     tone: "neutral",
-    href: "/import",
+    href: "/import#unmatched-list",
   },
 ] as const;
 
