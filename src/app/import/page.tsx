@@ -408,6 +408,23 @@ export default function ImportPage() {
     setError("");
   }
 
+  function applyRemainingQuantitiesToFilteredRows() {
+    if (!filteredUnmatched.length) {
+      setError("一括適用できる未割当がありません。");
+      setMessage("");
+      return;
+    }
+
+    setReceiptQuantityDrafts((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        filteredUnmatched.map((row) => [row.id, String(row.remainingQuantity)]),
+      ),
+    }));
+    setMessage(`表示中の未割当 ${filteredUnmatched.length} 件へ残数をセットしました。`);
+    setError("");
+  }
+
   async function resolveUnmatched(row: UnmatchedRow) {
     const note = resolutionDrafts[row.id]?.trim();
 
@@ -693,15 +710,24 @@ export default function ImportPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                   <p>検索や理由フィルタで表示中の行だけに反映します。</p>
-                  <Button
-                    disabled={!isOnline || !filteredUnmatched.length}
-                    variant="secondary"
-                    onClick={applyBulkDrafts}
-                  >
-                    表示中に一括入力
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      disabled={!isOnline || !filteredUnmatched.length}
+                      variant="secondary"
+                      onClick={applyRemainingQuantitiesToFilteredRows}
+                    >
+                      残数を一括セット
+                    </Button>
+                    <Button
+                      disabled={!isOnline || !filteredUnmatched.length}
+                      variant="secondary"
+                      onClick={applyBulkDrafts}
+                    >
+                      表示中に一括入力
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
