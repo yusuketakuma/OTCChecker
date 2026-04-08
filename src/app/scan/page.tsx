@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { PageHeader } from "@/components/app/page-header";
@@ -93,6 +93,11 @@ function ScanPageContent() {
   const appliedPrefillRef = useRef(false);
   const normalizedJanCode = normalizeJanCode(janCode);
   const parsedQuantity = parsePositiveIntegerInput(quantity);
+  const quickQuantityPresets = useMemo(() => {
+    const currentQuantity = parsedQuantity ?? 1;
+
+    return Array.from(new Set<number>([...quantityPresets, currentQuantity])).sort((a, b) => a - b);
+  }, [parsedQuantity]);
   const isJanComplete = /^\d{8,14}$/.test(normalizedJanCode);
   const currentLookupMatchesJan = lookupState.janCode === normalizedJanCode;
   const product =
@@ -521,7 +526,7 @@ function ScanPageContent() {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {quantityPresets.map((preset) => (
+            {quickQuantityPresets.map((preset) => (
               <button
                 key={`scan-qty-${preset}`}
                 type="button"
