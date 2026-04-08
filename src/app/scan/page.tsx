@@ -164,6 +164,22 @@ function ScanPageContent() {
     }
   }
 
+  function removeRecentScan(value: string) {
+    setRecentScans((current) => {
+      const next = current.filter((item) => item !== value);
+
+      if (typeof window !== "undefined") {
+        if (next.length > 0) {
+          window.localStorage.setItem(recentScanStorageKey, JSON.stringify(next));
+        } else {
+          window.localStorage.removeItem(recentScanStorageKey);
+        }
+      }
+
+      return next;
+    });
+  }
+
   useEffect(() => {
     writeStoredReceiptDefaults(expiryDate, parsedQuantity ?? 1);
   }, [expiryDate, parsedQuantity]);
@@ -521,15 +537,28 @@ function ScanPageContent() {
         ) : (
           <div className="flex flex-wrap gap-2">
             {recentScans.map((item) => (
-              <button
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700"
-                disabled={isSubmitting}
+              <div
+                className="inline-flex items-center overflow-hidden rounded-full bg-slate-100 text-sm font-medium text-slate-700"
                 key={item}
-                onClick={() => handleJanChange(item)}
-                type="button"
               >
-                {item}
-              </button>
+                <button
+                  className="px-4 py-2"
+                  disabled={isSubmitting}
+                  onClick={() => handleJanChange(item)}
+                  type="button"
+                >
+                  {item}
+                </button>
+                <button
+                  aria-label={`${item} を履歴から削除`}
+                  className="border-l border-slate-200 px-3 py-2 text-slate-500 transition active:scale-[0.99]"
+                  disabled={isSubmitting}
+                  onClick={() => removeRecentScan(item)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
         )}
