@@ -1,7 +1,10 @@
 import { fail, ok } from "@/lib/api";
 import { resolveUnmatchedSale } from "@/lib/inventory";
 import { getSettings } from "@/lib/settings";
-import { mapUnmatchedResolveError } from "@/lib/unmatched-resolve";
+import {
+  getUnmatchedResolveErrorMessage,
+  mapUnmatchedResolveError,
+} from "@/lib/unmatched-resolve";
 import { unmatchedBulkResolveSchema } from "@/lib/validators";
 
 export async function POST(request: Request) {
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
         results.push({
           unmatchedId: entry.unmatchedId,
           status: "failed",
-          error: error instanceof Error ? error.message : "UNEXPECTED_ERROR",
+          error: getUnmatchedResolveErrorMessage(error),
         });
       }
     }
