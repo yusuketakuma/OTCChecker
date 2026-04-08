@@ -57,6 +57,11 @@ type ExistingProductLookup = {
   alertDays: number[];
 };
 
+type LastSubmittedProductDraft = {
+  name: string;
+  spec: string;
+};
+
 const productFilters = [
   { key: "all", label: "全件" },
   { key: "attention", label: "期限注意" },
@@ -119,6 +124,7 @@ function ProductsPageContent({
   const [pendingDeleteProductId, setPendingDeleteProductId] = useState<string | null>(null);
   const [existingProduct, setExistingProduct] = useState<ExistingProductLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [lastSubmittedDraft, setLastSubmittedDraft] = useState<LastSubmittedProductDraft | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -229,12 +235,28 @@ function ProductsPageContent({
     });
   }
 
+  function restoreLastSubmittedDraft() {
+    if (!lastSubmittedDraft) {
+      return;
+    }
+
+    setName(lastSubmittedDraft.name);
+    setSpec(lastSubmittedDraft.spec);
+    setJanCode("");
+    setExistingProduct(null);
+    setMessage("前回の商品名と規格を戻しました。JANを入れて続けて登録できます。");
+    setError("");
+  }
+
   async function createProduct() {
     if (expiryDate && initialLotQuantity === null) {
       setError("初回数量は1以上の整数で入力してください。");
       setMessage("");
       return;
     }
+
+    const submittedName = name.trim();
+    const submittedSpec = spec.trim();
 
     try {
       setCreating(true);
@@ -256,6 +278,12 @@ function ProductsPageContent({
       setName("");
       setSpec("");
       setJanCode("");
+      setExistingProduct(null);
+      setLastSubmittedDraft(
+        submittedName && submittedSpec
+          ? { name: submittedName, spec: submittedSpec }
+          : null,
+      );
       setQuery("");
       setFilter("all");
       setMessage(
@@ -538,6 +566,11 @@ function ProductsPageContent({
                 ? "商品と初回ロットを追加"
                 : "商品マスタを追加"}
         </Button>
+        {lastSubmittedDraft && !name && !spec && !janCode ? (
+          <Button className="w-full" variant="secondary" disabled={creating} onClick={restoreLastSubmittedDraft}>
+            同じ規格でもう一件
+          </Button>
+        ) : null}
         {!isOnline ? (
           <p className="text-sm text-[var(--color-danger)]">
             オフライン中は商品登録を停止しています。接続回復後に登録してください。
