@@ -33,6 +33,27 @@ const cardConfig = [
   { key: "unmatchedCount", label: "未割当", tone: "neutral", href: "/import" },
 ] as const;
 
+const quickActions = [
+  {
+    href: "/scan",
+    title: "バーコード登録",
+    description: "入荷をすぐ記録",
+    className: "bg-[var(--color-brand)] text-white shadow-lg shadow-emerald-900/15",
+  },
+  {
+    href: "/import",
+    title: "CSV取込",
+    description: "売上をまとめて反映",
+    className: "bg-white/92 text-[var(--color-text)] ring-1 ring-slate-200",
+  },
+  {
+    href: "/products",
+    title: "商品管理",
+    description: "SKUを先に登録",
+    className: "bg-white/92 text-[var(--color-text)] ring-1 ring-slate-200",
+  },
+] as const;
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState("");
@@ -50,6 +71,25 @@ export default function DashboardPage() {
         title="OTC-Checker"
         description="薬局のOTC商品の管理"
       />
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[var(--color-text)]">今日のクイック操作</h2>
+          <span className="text-sm text-slate-500">iPhone向けの最短導線</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {quickActions.map((action) => (
+            <Link
+              href={action.href}
+              key={action.href}
+              className={`rounded-3xl px-5 py-4 transition active:scale-[0.99] ${action.className}`}
+            >
+              <p className="text-base font-semibold">{action.title}</p>
+              <p className="mt-1 text-sm opacity-80">{action.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cardConfig.map((item) => (
