@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, postJson, putJson } from "@/lib/client";
 import { formatDateLabel, formatDateTimeLabel, todayJstKey } from "@/lib/date";
+import { parseCommaSeparatedIntegers } from "@/lib/utils";
 
 type HistoryTab = "receipts" | "sales" | "disposals" | "adjustments";
 
@@ -393,10 +394,7 @@ export default function InventoryDetailPage() {
       await putJson(`/api/products/${product.id}`, {
         name: editName,
         spec: editSpec,
-        alertDays: editAlertDays
-          .split(",")
-          .map((item) => Number(item.trim()))
-          .filter((item) => Number.isFinite(item)),
+        alertDays: parseCommaSeparatedIntegers(editAlertDays),
       });
       setMessage("商品マスタを更新しました。");
       await load();

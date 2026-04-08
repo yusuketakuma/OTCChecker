@@ -8,6 +8,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, putJson } from "@/lib/client";
+import { parseCommaSeparatedIntegers } from "@/lib/utils";
 
 type Settings = {
   defaultAlertDays: number[];
@@ -53,10 +54,7 @@ export default function SettingsPage() {
 
     try {
       const updated = await putJson<Settings>("/api/settings", {
-        defaultAlertDays: alertDays
-          .split(",")
-          .map((item) => Number(item.trim()))
-          .filter((item) => Number.isFinite(item)),
+        defaultAlertDays: parseCommaSeparatedIntegers(alertDays),
       });
       setSettings(updated);
       setMessage("設定を保存しました。");

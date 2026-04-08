@@ -188,7 +188,10 @@ export default function ProductsPage() {
         <div className="space-y-3">
           {items.map((item) => (
             <Card className="space-y-3" key={item.productId}>
-              <Link href={`/inventory/${item.productId}`}>
+              <Link
+                className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
+                href={`/inventory/${item.productId}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <CardTitle>{item.name}</CardTitle>
@@ -218,7 +221,7 @@ export default function ProductsPage() {
                             : "正常"}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
                   <p>JAN: {item.janCode}</p>
                   <p>アラート: {item.alertDays.join("/")}</p>
                   <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
