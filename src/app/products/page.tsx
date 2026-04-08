@@ -49,6 +49,14 @@ type ProductCreateResult = {
   action: "created" | "created-with-lot" | "existing" | "received-on-existing";
 };
 
+type ExistingProductLookup = {
+  id: string;
+  name: string;
+  spec: string;
+  janCode: string;
+  alertDays: number[];
+};
+
 const productFilters = [
   { key: "all", label: "全件" },
   { key: "attention", label: "期限注意" },
@@ -109,9 +117,12 @@ function ProductsPageContent({
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDeleteProductId, setPendingDeleteProductId] = useState<string | null>(null);
+  const [existingProduct, setExistingProduct] = useState<ExistingProductLookup | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const deferredQuery = useDeferredValue(query);
+  const deferredJanCode = useDeferredValue(janCode);
   const initialLotQuantity = parsePositiveIntegerInput(quantity);
   const janCodeValid = /^\d{8,14}$/.test(janCode);
 
@@ -163,6 +174,38 @@ function ProductsPageContent({
   useEffect(() => {
     writeStoredReceiptDefaults(expiryDate, initialLotQuantity ?? 1);
   }, [expiryDate, initialLotQuantity]);
+
+  useEffect(() => {
+    const normalizedJan = sanitizeJanInput(deferredJanCode);
+
+    if (!/^\d{8,14}$/.test(normalizedJan)) {
+      setExistingProduct(null);
+      setLookupLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLookupLoading(true);
+
+    fetchJson<ExistingProductLookup | null>(`/api/products/jan/${normalizedJan}`, {
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setExistingProduct(data);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setExistingProduct(null);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLookupLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [deferredJanCode]);
 
   function resetInitialLotDraft(options?: { clearStored?: boolean; message?: string }) {
     setExpiryDate("");
@@ -356,6 +399,37 @@ function ProductsPageContent({
             onChange={(event) => setJanCode(sanitizeJanInput(event.target.value))}
             placeholder="JANコード"
           />
+          {janCodeValid ? (
+            lookupLoading ? (
+              <p className="text-xs text-slate-500">既存JANを確認中です。</p>
+            ) : existingProduct ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-950">
+                <p className="font-semibold">このJANはすでに登録されています</p>
+                <p className="mt-1">
+                  {existingProduct.name} / {existingProduct.spec}
+                </p>
+                <p className="mt-1 text-xs text-amber-900">
+                  重複登録せず、そのまま既存商品への在庫追加として扱えます。
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <Link
+                    className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-amber-950 ring-1 ring-amber-200 transition active:scale-[0.99]"
+                    href={`/inventory/${existingProduct.id}`}
+                  >
+                    在庫詳細を開く
+                  </Link>
+                  <Link
+                    className="inline-flex h-11 w-full items-center justify-center rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition active:scale-[0.99]"
+                    href={`/scan?jan=${encodeURIComponent(existingProduct.janCode)}&name=${encodeURIComponent(existingProduct.name)}&spec=${encodeURIComponent(existingProduct.spec)}&quantity=1`}
+                  >
+                    スキャン入荷へ
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-emerald-700">このJANは未登録です。新規商品として追加できます。</p>
+            )
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Input
@@ -454,7 +528,15 @@ function ProductsPageContent({
           }
           onClick={createProduct}
         >
-          {creating ? "登録中..." : expiryDate ? "商品と初回ロットを追加" : "商品マスタを追加"}
+          {creating
+            ? "登録中..."
+            : existingProduct
+              ? expiryDate
+                ? "既存商品へ在庫追加"
+                : "既存商品を開くか在庫追加"
+              : expiryDate
+                ? "商品と初回ロットを追加"
+                : "商品マスタを追加"}
         </Button>
         {!isOnline ? (
           <p className="text-sm text-[var(--color-danger)]">
