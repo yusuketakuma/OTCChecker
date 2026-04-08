@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -36,6 +36,8 @@ type PreviewResponse = {
   };
 };
 
+type UnmatchedReason = "NO_PRODUCT" | "INSUFFICIENT_STOCK" | "DUPLICATE_ROW" | "MANUAL_RESOLUTION";
+
 type UnmatchedRow = {
   id: string;
   rawProductName: string;
@@ -43,7 +45,7 @@ type UnmatchedRow = {
   remainingQuantity: number;
   requestedQuantity: number;
   appliedQuantity: number;
-  reason: string;
+  reason: UnmatchedReason;
   sourceRowNo: number | null;
   transactionDate: string | null;
   resolutionNote: string | null;
@@ -68,6 +70,13 @@ const previewLabel = {
   INSUFFICIENT_STOCK: "INSUFFICIENT",
   DUPLICATE: "DUPLICATE",
 } as const;
+
+const unmatchedReasonOptions = [
+  { key: "all", label: "全件" },
+  { key: "NO_PRODUCT", label: "商品未一致" },
+  { key: "INSUFFICIENT_STOCK", label: "在庫不足" },
+  { key: "DUPLICATE_ROW", label: "重複行" },
+] as const;
 
 function summarizePreview(rows: PreviewResponse["rows"]) {
   return rows.reduce(
@@ -123,9 +132,35 @@ export default function ImportPage() {
   const [previewing, setPreviewing] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [unmatchedQuery, setUnmatchedQuery] = useState("");
+  const [unmatchedReasonFilter, setUnmatchedReasonFilter] = useState<(typeof unmatchedReasonOptions)[number]["key"]>("all");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const previewSummary = preview ? summarizePreview(preview.rows) : null;
+  const filteredUnmatched = useMemo(() => {
+    const query = unmatchedQuery.trim().toLowerCase();
+
+    return unmatched.filter((row) => {
+      if (unmatchedReasonFilter !== "all" && row.reason !== unmatchedReasonFilter) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return [
+        row.rawProductName,
+        row.janCode,
+        row.reason,
+        row.matchedProduct?.name,
+        row.matchedProduct?.spec,
+        row.matchedProduct?.janCode,
+      ]
+        .filter(Boolean)
+        .some((value) => value?.toLowerCase().includes(query));
+    });
+  }, [unmatched, unmatchedQuery, unmatchedReasonFilter]);
 
   function applyUnmatchedRows(rows: UnmatchedRow[]) {
     setUnmatched(rows);
@@ -418,13 +453,43 @@ export default function ImportPage() {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-[var(--color-text)]">未割当一覧</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-[var(--color-text)]">未割当一覧</h2>
+          <Badge tone="neutral">{filteredUnmatched.length}/{unmatched.length}件</Badge>
+        </div>
         {!unmatched.length ? (
           <EmptyState title="未割当はありません" description="NO_PRODUCT と INSUFFICIENT_STOCK がここに出ます。" />
         ) : (
-          <div className="space-y-3">
-            {unmatched.map((row) => (
-              <Card className="space-y-3" key={row.id}>
+          <>
+            <Card className="space-y-4">
+              <Input
+                value={unmatchedQuery}
+                onChange={(event) => setUnmatchedQuery(event.target.value)}
+                placeholder="商品名・JAN・理由で検索"
+              />
+              <div className="flex flex-wrap gap-2">
+                {unmatchedReasonOptions.map((option) => (
+                  <button
+                    className={`rounded-full px-4 py-2 text-sm font-medium ${
+                      unmatchedReasonFilter === option.key
+                        ? "bg-[var(--color-brand)] text-white"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                    key={option.key}
+                    onClick={() => setUnmatchedReasonFilter(option.key)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+            {!filteredUnmatched.length ? (
+              <EmptyState title="条件に合う未割当がありません" description="検索語やフィルタを変更してください。" />
+            ) : (
+              <div className="space-y-3">
+                {filteredUnmatched.map((row) => (
+                  <Card className="space-y-3" key={row.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle className="text-sm">{row.rawProductName || "名称なし"}</CardTitle>
@@ -548,9 +613,11 @@ export default function ImportPage() {
                     {resolvingId === row.id ? "更新中..." : "メモのみで解決"}
                   </Button>
                 </div>
-              </Card>
-            ))}
-          </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>
