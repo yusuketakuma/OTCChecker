@@ -234,25 +234,26 @@ export default function ScanPage() {
       setMessage("");
       const code = normalizedJanCode;
 
-      let productId = product?.id;
-
-      if (!productId) {
-        const created = await postJson<{ id: string }>("/api/products", {
+      if (product?.id) {
+        await postJson("/api/lots", {
+          productId: product.id,
+          expiryDate,
+          quantity,
+        });
+      } else {
+        await postJson<{ id: string }>("/api/products", {
           janCode: code,
           name,
           spec,
+          initialLot: {
+            expiryDate,
+            quantity,
+          },
         });
-        productId = created.id;
       }
 
-      await postJson("/api/lots", {
-        productId,
-        expiryDate,
-        quantity,
-      });
-
       pushRecentScan(code);
-      setMessage("入荷登録が完了しました。");
+      setMessage(product ? "既存SKUへ入荷登録しました。" : "新規SKUを作成して入荷登録しました。");
       setJanCode("");
       setLookupState({ status: "idle", janCode: "" });
       setName("");
