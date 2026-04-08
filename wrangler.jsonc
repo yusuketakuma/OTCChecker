@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "otc-checker",
+  "name": "otcchecker",
   "compatibility_date": "2026-04-08",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "rules": [
