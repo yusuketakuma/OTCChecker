@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -57,12 +57,49 @@ const quickActions = [
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadSummary = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) {
+      setRefreshing(true);
+    }
+
+    try {
+      const summary = await fetchJson<DashboardSummary>("/api/dashboard/summary");
+      setData(summary);
+      setError("");
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      if (showRefreshing) {
+        setRefreshing(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    fetchJson<DashboardSummary>("/api/dashboard/summary")
-      .then(setData)
-      .catch((cause) => setError(cause.message));
-  }, []);
+    void loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    function handleFocus() {
+      void loadSummary();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void loadSummary();
+      }
+    }
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadSummary]);
 
   return (
     <div className="space-y-6">
@@ -110,11 +147,21 @@ export default function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[var(--color-text)]">直近アラート対象</h2>
-          <Link className="text-sm font-medium text-[var(--color-brand)]" href="/inventory">
-            在庫一覧を見る
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="text-sm font-medium text-[var(--color-brand)] disabled:opacity-50"
+              disabled={refreshing}
+              onClick={() => void loadSummary(true)}
+            >
+              {refreshing ? "更新中..." : "最新に更新"}
+            </button>
+            <Link className="text-sm font-medium text-[var(--color-brand)]" href="/inventory">
+              在庫一覧を見る
+            </Link>
+          </div>
         </div>
         {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
         {!data?.alertLots.length ? (
