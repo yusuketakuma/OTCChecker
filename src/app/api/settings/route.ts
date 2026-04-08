@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const parsed = settingsSchema.safeParse(await request.json());
 
     if (!parsed.success) {

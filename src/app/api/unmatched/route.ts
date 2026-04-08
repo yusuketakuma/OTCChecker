@@ -3,7 +3,7 @@ import { getPrisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const rows = await prisma.unmatchedSale.findMany({
       include: {
         importBatch: {

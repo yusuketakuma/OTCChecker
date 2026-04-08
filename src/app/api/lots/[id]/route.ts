@@ -10,7 +10,7 @@ export async function PUT(
   const { id } = await context.params;
 
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const parsed = lotQuantitySchema.safeParse(await request.json());
 
     if (!parsed.success) {
@@ -71,7 +71,7 @@ export async function DELETE(
   const { id } = await context.params;
 
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const lot = await prisma.inventoryLot.findUnique({ where: { id } });
 
     if (!lot) {

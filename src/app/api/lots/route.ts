@@ -5,7 +5,7 @@ import { getPrisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get("productId");
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const parsed = lotCreateSchema.safeParse(await request.json());
 
     if (!parsed.success) {

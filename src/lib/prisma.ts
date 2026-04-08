@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client/wasm";
 import { PrismaD1 } from "@prisma/adapter-d1";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
@@ -12,9 +12,9 @@ function createNodePrismaClient() {
   });
 }
 
-function createPrismaClient() {
+async function createPrismaClient() {
   try {
-    const { env } = getCloudflareContext();
+    const { env } = await getCloudflareContext({ async: true });
     const cloudflareEnv = env as {
       DB?: ConstructorParameters<typeof PrismaD1>[0];
     };
@@ -34,8 +34,8 @@ function createPrismaClient() {
   return globalForPrisma.prisma ?? createNodePrismaClient();
 }
 
-export function getPrisma() {
-  const prisma = createPrismaClient();
+export async function getPrisma() {
+  const prisma = await createPrismaClient();
 
   if (process.env.NODE_ENV !== "production" && !globalForPrisma.prisma) {
     globalForPrisma.prisma = prisma;

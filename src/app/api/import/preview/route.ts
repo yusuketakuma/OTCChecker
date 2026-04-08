@@ -7,7 +7,7 @@ import { getPrisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const formData = await request.formData();
     const file = formData.get("file");
 

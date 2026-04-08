@@ -22,7 +22,7 @@ function readAlertDays(value: Prisma.JsonValue | null | undefined) {
 }
 
 export async function getSettings() {
-  const prisma = getPrisma();
+  const prisma = await getPrisma();
   const settings = await prisma.appSettings.upsert({
     where: { id: "singleton" },
     create: defaultSettings,

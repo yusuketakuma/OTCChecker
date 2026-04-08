@@ -47,8 +47,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Dashboard"
-        title="賞味期限を先回りして管理"
-        description="期限切れ、7日以内、30日以内を最初に確認し、期限の近いロットから処理します。"
+        title="OTC-Checker"
+        description="薬局のOTC商品の管理"
       />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

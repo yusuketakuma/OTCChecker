@@ -9,7 +9,7 @@ export async function GET(
   const { code } = await context.params;
 
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const product = await prisma.product.findUnique({
       where: { janCode: normalizeJanCode(code) },
     });

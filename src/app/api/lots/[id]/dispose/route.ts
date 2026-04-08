@@ -9,7 +9,7 @@ export async function POST(
   const { id } = await context.params;
 
   try {
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const parsed = disposeSchema.safeParse(await request.json());
 
     if (!parsed.success) {
