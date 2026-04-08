@@ -1,5 +1,10 @@
 "use client";
 
+type FlattenedErrorDetails = {
+  formErrors?: string[];
+  fieldErrors?: Record<string, string[] | undefined>;
+};
+
 async function readResponsePayload(response: Response) {
   const contentType = response.headers.get("content-type") ?? "";
 
@@ -20,12 +25,50 @@ async function readResponsePayload(response: Response) {
   }
 }
 
-function buildErrorMessage(response: Response, payload: unknown) {
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const error = payload.error;
+function readFlattenedErrorMessage(details: unknown) {
+  if (!details || typeof details !== "object") {
+    return "";
+  }
 
-    if (typeof error === "string" && error.trim()) {
-      return error;
+  const { formErrors, fieldErrors } = details as FlattenedErrorDetails;
+
+  const firstFormError = formErrors?.find(
+    (message): message is string => typeof message === "string" && Boolean(message.trim()),
+  );
+
+  if (firstFormError) {
+    return firstFormError.trim();
+  }
+
+  if (fieldErrors && typeof fieldErrors === "object") {
+    for (const [field, messages] of Object.entries(fieldErrors)) {
+      const firstFieldError = messages?.find(
+        (message): message is string => typeof message === "string" && Boolean(message.trim()),
+      );
+
+      if (firstFieldError) {
+        return `${field}: ${firstFieldError.trim()}`;
+      }
+    }
+  }
+
+  return "";
+}
+
+function buildErrorMessage(response: Response, payload: unknown) {
+  if (payload && typeof payload === "object") {
+    const detailsMessage = "details" in payload ? readFlattenedErrorMessage(payload.details) : "";
+
+    if (detailsMessage) {
+      return detailsMessage;
+    }
+
+    if ("error" in payload) {
+      const error = payload.error;
+
+      if (typeof error === "string" && error.trim()) {
+        return error;
+      }
     }
   }
 
