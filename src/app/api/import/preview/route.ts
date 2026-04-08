@@ -3,10 +3,11 @@ import { ImportBatchStatus } from "@prisma/client";
 import { fail, ok } from "@/lib/api";
 import { buildFileHash, decodeCsvBuffer, defaultCsvParser } from "@/lib/csv";
 import { buildImportPreview } from "@/lib/inventory";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
+    const prisma = getPrisma();
     const formData = await request.formData();
     const file = formData.get("file");
 

@@ -1,7 +1,7 @@
 import { fail, ok } from "@/lib/api";
 import { ensureLotDeletable } from "@/lib/inventory";
 import { lotQuantitySchema } from "@/lib/validators";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function PUT(
   request: Request,
@@ -10,6 +10,7 @@ export async function PUT(
   const { id } = await context.params;
 
   try {
+    const prisma = getPrisma();
     const parsed = lotQuantitySchema.safeParse(await request.json());
 
     if (!parsed.success) {
@@ -70,6 +71,7 @@ export async function DELETE(
   const { id } = await context.params;
 
   try {
+    const prisma = getPrisma();
     const lot = await prisma.inventoryLot.findUnique({ where: { id } });
 
     if (!lot) {

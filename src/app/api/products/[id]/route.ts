@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { fail, ok } from "@/lib/api";
 import { normalizeAlertDays } from "@/lib/date";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 const productUpdateSchema = z.object({
   name: z.string().min(1).max(120),
@@ -18,6 +18,7 @@ export async function GET(
   const { id } = await context.params;
 
   try {
+    const prisma = getPrisma();
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -63,6 +64,7 @@ export async function PUT(
   const { id } = await context.params;
 
   try {
+    const prisma = getPrisma();
     const parsed = productUpdateSchema.safeParse(await request.json());
 
     if (!parsed.success) {

@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && wrangler dev",
+    "cf:deploy": "opennextjs-cloudflare build && wrangler deploy",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
@@ -13,6 +16,8 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.18.1",
+    "@prisma/adapter-pg": "^6.19.3",
     "@prisma/client": "^6.19.3",
     "@supabase/supabase-js": "^2.102.1",
     "@zxing/browser": "^0.1.5",
@@ -23,6 +28,7 @@
     "lucide-react": "^1.7.0",
     "next": "16.2.2",
     "papaparse": "^5.5.3",
+    "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwind-merge": "^3.5.0",
@@ -38,6 +44,7 @@
     "eslint-config-next": "16.2.2",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.81.0"
   }
 }

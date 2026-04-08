@@ -8,7 +8,7 @@ import {
 
 import { diffDaysFromToday, formatDateLabel, getExpiryBucket, parseDateOnly } from "@/lib/date";
 import { type ImportRow, type PreviewRow, normalizeJanCode } from "@/lib/csv";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export type ProductInventorySummary = {
   productId: string;
@@ -36,6 +36,7 @@ export async function listProductSummaries(params: {
   search?: string;
   bucket?: string;
 }) {
+  const prisma = getPrisma();
   const search = params.search?.trim();
   const lots = await prisma.inventoryLot.findMany({
     where: {
@@ -115,6 +116,7 @@ export async function listProductSummaries(params: {
 export async function listProductMasters(params: {
   search?: string;
 }) {
+  const prisma = getPrisma();
   const search = params.search?.trim();
   const [products, activeLots] = await Promise.all([
     prisma.product.findMany({
@@ -191,6 +193,7 @@ export async function listProductMasters(params: {
 }
 
 export async function getDashboardSummary() {
+  const prisma = getPrisma();
   const lots = await prisma.inventoryLot.findMany({
     where: { status: InventoryLotStatus.ACTIVE },
     include: { product: true },
@@ -282,6 +285,7 @@ export function buildSourceRowKey(row: ImportRow) {
 }
 
 export async function buildImportPreview(rows: ImportRow[]) {
+  const prisma = getPrisma();
   const janCodes = Array.from(
     new Set(rows.map((row) => normalizeJanCode(row.janCode)).filter(Boolean)),
   );
@@ -395,6 +399,7 @@ export async function buildImportPreview(rows: ImportRow[]) {
 }
 
 export async function executeImportBatch(previewId: string) {
+  const prisma = getPrisma();
   try {
     return await prisma.$transaction(async (tx) => {
       const batch = await tx.importBatch.findUnique({
@@ -541,6 +546,7 @@ export async function executeManualSale(params: {
   quantity: number;
   transactionDate?: string;
 }) {
+  const prisma = getPrisma();
   return prisma.$transaction(async (tx) => {
     const product = await tx.product.findUnique({
       where: { id: params.productId },
@@ -691,6 +697,7 @@ export async function resolveUnmatchedSale(params: {
   spec?: string;
   defaultAlertDays?: number[];
 }) {
+  const prisma = getPrisma();
   return prisma.$transaction(async (tx) => {
     const unmatched = await tx.unmatchedSale.findUnique({
       where: { id: params.unmatchedId },
@@ -819,6 +826,7 @@ export function mapErrorToStatus(error: unknown) {
 }
 
 export async function ensureLotDeletable(lotId: string) {
+  const prisma = getPrisma();
   const [salesCount, disposalCount, adjustmentCount] = await Promise.all([
     prisma.salesRecord.count({ where: { lotId } }),
     prisma.disposalRecord.count({ where: { lotId } }),

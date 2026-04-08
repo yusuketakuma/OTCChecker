@@ -1,6 +1,6 @@
 import { fail, ok } from "@/lib/api";
 import { normalizeJanCode } from "@/lib/csv";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function GET(
   _request: Request,
@@ -9,6 +9,7 @@ export async function GET(
   const { code } = await context.params;
 
   try {
+    const prisma = getPrisma();
     const product = await prisma.product.findUnique({
       where: { janCode: normalizeJanCode(code) },
     });

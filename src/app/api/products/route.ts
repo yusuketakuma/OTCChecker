@@ -2,9 +2,9 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { fail, ok } from "@/lib/api";
 import { listProductMasters, listProductSummaries } from "@/lib/inventory";
+import { getPrisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { productSchema } from "@/lib/validators";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
@@ -28,6 +28,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const prisma = getPrisma();
     const parsed = productSchema.safeParse(await request.json());
 
     if (!parsed.success) {

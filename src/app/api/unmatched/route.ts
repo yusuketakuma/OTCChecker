@@ -1,8 +1,9 @@
 import { fail, ok } from "@/lib/api";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
+    const prisma = getPrisma();
     const rows = await prisma.unmatchedSale.findMany({
       include: {
         importBatch: {

@@ -9,6 +9,7 @@
 - Tailwind CSS
 - Prisma
 - PostgreSQL / Supabase
+- Cloudflare Workers + OpenNext
 - PWA manifest
 
 ## セットアップ
@@ -25,6 +26,13 @@ npm install
 npm run db:generate
 npm run db:push
 npm run dev
+```
+
+Cloudflare Workers でローカル確認する場合は `.dev.vars.example` を `.dev.vars` にコピーして `wrangler` 用の環境変数を設定します。
+
+```bash
+cp .dev.vars.example .dev.vars
+npm run cf:preview
 ```
 
 ## 主な画面
@@ -66,6 +74,19 @@ npm run lint
 npm run typecheck
 npm run build
 ```
+
+## Cloudflare デプロイ
+
+```bash
+npx wrangler login
+npx wrangler secret put DATABASE_URL
+npm run cf:deploy
+```
+
+Cloudflare 向け設定ファイル:
+
+- `wrangler.jsonc`
+- `open-next.config.ts`
 
 ## 設計資料
 

@@ -1,6 +1,6 @@
 import { fail, ok } from "@/lib/api";
 import { disposeSchema } from "@/lib/validators";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function POST(
   request: Request,
@@ -9,6 +9,7 @@ export async function POST(
   const { id } = await context.params;
 
   try {
+    const prisma = getPrisma();
     const parsed = disposeSchema.safeParse(await request.json());
 
     if (!parsed.success) {

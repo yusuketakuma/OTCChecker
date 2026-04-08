@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   if (!env.appGateToken) {
     return NextResponse.next();
   }

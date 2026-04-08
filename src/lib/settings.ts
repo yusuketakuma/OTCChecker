@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { normalizeAlertDays } from "@/lib/date";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export const defaultSettings = {
   id: "singleton",
@@ -10,6 +10,7 @@ export const defaultSettings = {
 };
 
 export async function getSettings() {
+  const prisma = getPrisma();
   const settings = await prisma.appSettings.upsert({
     where: { id: "singleton" },
     create: defaultSettings,

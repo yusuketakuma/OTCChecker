@@ -2,8 +2,8 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { fail, ok } from "@/lib/api";
 import { buildSettingsUpdate, getSettings } from "@/lib/settings";
+import { getPrisma } from "@/lib/prisma";
 import { settingsSchema } from "@/lib/validators";
-import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
@@ -16,6 +16,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
+    const prisma = getPrisma();
     const parsed = settingsSchema.safeParse(await request.json());
 
     if (!parsed.success) {

@@ -1,10 +1,11 @@
 import { fail, ok } from "@/lib/api";
 import { parseDateOnly } from "@/lib/date";
 import { lotCreateSchema } from "@/lib/validators";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
+    const prisma = getPrisma();
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get("productId");
 
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const prisma = getPrisma();
     const parsed = lotCreateSchema.safeParse(await request.json());
 
     if (!parsed.success) {
