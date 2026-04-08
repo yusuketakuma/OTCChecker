@@ -164,7 +164,13 @@ export default function InventoryPage() {
                   <p className="col-span-2">最短期限: {item.earliestExpiry ?? "-"}</p>
                 </div>
               </Link>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Link
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+                  href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
+                >
+                  入荷する
+                </Link>
                 <Link
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
                   href={`/inventory/${item.productId}`}
@@ -172,7 +178,7 @@ export default function InventoryPage() {
                   在庫編集
                 </Link>
                 <Link
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
                   href={`/inventory/${item.productId}`}
                 >
                   詳細を見る
