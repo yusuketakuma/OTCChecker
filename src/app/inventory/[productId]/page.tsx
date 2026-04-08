@@ -648,7 +648,7 @@ export default function InventoryDetailPage() {
   }
 
   async function recordManualSale() {
-    if (!product) {
+    if (selling || !product) {
       return;
     }
 
@@ -822,7 +822,7 @@ export default function InventoryDetailPage() {
           <div className="space-y-2">
             <FieldLabel>売上日</FieldLabel>
             <Input
-              disabled={!isOnline}
+              disabled={!isOnline || selling}
               type="date"
               value={saleDate}
               onChange={(event) => setSaleDate(event.target.value)}
@@ -832,7 +832,7 @@ export default function InventoryDetailPage() {
                 <button
                   key={preset.label}
                   type="button"
-                  disabled={!isOnline}
+                  disabled={!isOnline || selling}
                   className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
                   onClick={() => setSaleDate(addDaysToDateKey(todayJstKey(), preset.days))}
                 >
@@ -844,7 +844,7 @@ export default function InventoryDetailPage() {
           <div className="space-y-2">
             <FieldLabel>数量</FieldLabel>
             <Input
-              disabled={!isOnline}
+              disabled={!isOnline || selling}
               {...positiveIntegerInputProps}
               enterKeyHint="done"
               value={saleQuantity}
@@ -855,7 +855,7 @@ export default function InventoryDetailPage() {
                 <button
                   key={`sale-${preset}`}
                   type="button"
-                  disabled={!isOnline}
+                  disabled={!isOnline || selling}
                   className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
                   onClick={() => setSaleQuantity(String(preset))}
                 >
@@ -865,7 +865,7 @@ export default function InventoryDetailPage() {
               {totalActiveQuantity > 0 ? (
                 <button
                   type="button"
-                  disabled={!isOnline}
+                  disabled={!isOnline || selling}
                   className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 disabled:opacity-50"
                   onClick={() => setSaleQuantity(String(totalActiveQuantity))}
                 >

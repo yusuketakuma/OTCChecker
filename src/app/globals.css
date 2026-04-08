@@ -15,6 +15,24 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+  --font-noto-sans:
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic",
+    "Yu Gothic UI",
+    "Meiryo",
+    "Noto Sans JP",
+    system-ui,
+    sans-serif;
+  --font-space-mono:
+    "SFMono-Regular",
+    "SF Mono",
+    "Cascadia Code",
+    "Roboto Mono",
+    "Menlo",
+    "Monaco",
+    "Courier New",
+    monospace;
 }
 
 @theme inline {
