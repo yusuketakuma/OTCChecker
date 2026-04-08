@@ -160,9 +160,13 @@ export default function ProductsPage() {
               type="number"
               value={quantity}
               onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
-              placeholder="初回数量"
+              placeholder="初回数量（期限入力時のみ）"
+              disabled={!expiryDate}
             />
           </div>
+          <p className="text-xs text-slate-500">
+            期限を入れない場合は商品マスタのみ登録します。初回在庫を同時登録したいときだけ期限日と数量を入力してください。
+          </p>
         </div>
         <Button
           className="w-full"
