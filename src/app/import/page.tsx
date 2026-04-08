@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, putJson } from "@/lib/client";
 import { parsePositiveIntegerInput, positiveIntegerInputProps } from "@/lib/mobile-input";
+import { addDaysToDateKey, todayJstKey } from "@/lib/date";
 import { cn, formatQuantity } from "@/lib/utils";
 
 type PreviewResponse = {
@@ -78,6 +79,39 @@ const unmatchedReasonOptions = [
   { key: "INSUFFICIENT_STOCK", label: "在庫不足" },
   { key: "DUPLICATE_ROW", label: "重複行" },
 ] as const;
+
+const receiptDefaultsStorageKey = "otc-checker:scan-receipt-defaults";
+const receiptExpiryPresets = [
+  { label: "今日", days: 0 },
+  { label: "+30日", days: 30 },
+  { label: "+90日", days: 90 },
+  { label: "+180日", days: 180 },
+] as const;
+
+function readStoredReceiptDefaults() {
+  if (typeof window === "undefined") {
+    return { expiryDate: "", quantity: 1 };
+  }
+
+  try {
+    const saved = window.localStorage.getItem(receiptDefaultsStorageKey);
+
+    if (!saved) {
+      return { expiryDate: "", quantity: 1 };
+    }
+
+    const parsed = JSON.parse(saved) as { expiryDate?: string; quantity?: number };
+
+    return {
+      expiryDate: typeof parsed.expiryDate === "string" ? parsed.expiryDate : "",
+      quantity:
+        typeof parsed.quantity === "number" && parsed.quantity > 0 ? parsed.quantity : 1,
+    };
+  } catch {
+    window.localStorage.removeItem(receiptDefaultsStorageKey);
+    return { expiryDate: "", quantity: 1 };
+  }
+}
 
 function summarizePreview(rows: PreviewResponse["rows"]) {
   return rows.reduce(
@@ -164,6 +198,8 @@ export default function ImportPage() {
   }, [unmatched, unmatchedQuery, unmatchedReasonFilter]);
 
   function applyUnmatchedRows(rows: UnmatchedRow[]) {
+    const storedDefaults = readStoredReceiptDefaults();
+
     setUnmatched(rows);
     setResolutionDrafts(
       Object.fromEntries(rows.map((row) => [row.id, row.resolutionNote ?? "確認済み"])),
@@ -172,7 +208,9 @@ export default function ImportPage() {
       Object.fromEntries(rows.map((row) => [row.id, String(row.remainingQuantity)])),
     );
     setExpiryDateDrafts(
-      Object.fromEntries(rows.map((row) => [row.id, ""])),
+      Object.fromEntries(
+        rows.map((row) => [row.id, storedDefaults.expiryDate]),
+      ),
     );
     setProductNameDrafts(
       Object.fromEntries(
@@ -558,6 +596,24 @@ export default function ImportPage() {
                               }))
                             }
                           />
+                          <div className="flex flex-wrap gap-2">
+                            {receiptExpiryPresets.map((preset) => (
+                              <button
+                                key={`${row.id}-${preset.label}`}
+                                type="button"
+                                disabled={!isOnline}
+                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                                onClick={() =>
+                                  setExpiryDateDrafts((current) => ({
+                                    ...current,
+                                    [row.id]: addDaysToDateKey(todayJstKey(), preset.days),
+                                  }))
+                                }
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <FieldLabel>入荷数量</FieldLabel>
@@ -573,6 +629,21 @@ export default function ImportPage() {
                               }))
                             }
                           />
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={!isOnline}
+                              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                              onClick={() =>
+                                setReceiptQuantityDrafts((current) => ({
+                                  ...current,
+                                  [row.id]: String(row.remainingQuantity),
+                                }))
+                              }
+                            >
+                              残数をセット
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
