@@ -167,7 +167,11 @@ export async function listInventoryProducts(params: {
       status: InventoryLotStatus.ACTIVE,
       product: search
         ? {
-            OR: [{ name: { contains: search } }, { janCode: { contains: search } }],
+            OR: [
+              { name: { contains: search } },
+              { spec: { contains: search } },
+              { janCode: { contains: search } },
+            ],
           }
         : undefined,
     },
@@ -230,6 +234,7 @@ export async function listProductMasters(params: {
         ? {
             OR: [
               { name: { contains: search } },
+              { spec: { contains: search } },
               { janCode: { contains: search } },
             ],
           }
@@ -243,6 +248,7 @@ export async function listProductMasters(params: {
           ? {
               OR: [
                 { name: { contains: search } },
+                { spec: { contains: search } },
                 { janCode: { contains: search } },
               ],
             }
@@ -256,6 +262,7 @@ export async function listProductMasters(params: {
           ? {
               OR: [
                 { name: { contains: search } },
+                { spec: { contains: search } },
                 { janCode: { contains: search } },
               ],
             }

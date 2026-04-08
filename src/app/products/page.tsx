@@ -236,7 +236,7 @@ function ProductsPageContent({
       <Card className="space-y-4">
         <CardTitle>商品検索</CardTitle>
         <Input
-          placeholder="商品名・JANコードで検索"
+          placeholder="商品名・規格・JANコードで検索"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />

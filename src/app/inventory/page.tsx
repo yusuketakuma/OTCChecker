@@ -111,12 +111,12 @@ function InventoryPageContent({
       <PageHeader
         eyebrow="Inventory"
         title="在庫一覧"
-        description="商品名または JAN で検索し、期限に応じて一覧を絞り込みます。"
+        description="商品名・規格・JANで検索し、期限に応じて一覧を絞り込みます。"
       />
 
       <Card className="space-y-4">
         <Input
-          placeholder="商品名・JANコードで検索"
+          placeholder="商品名・規格・JANコードで検索"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
