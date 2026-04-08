@@ -122,8 +122,11 @@ export default function DashboardPage() {
         ) : (
           <div className="space-y-3">
             {data.alertLots.map((lot) => (
-              <Link href={`/inventory/${lot.productId}`} key={lot.lotId}>
-                <Card className="bg-white/92">
+              <Card className="space-y-3 bg-white/92" key={lot.lotId}>
+                <Link
+                  href={`/inventory/${lot.productId}`}
+                  className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <CardTitle>{lot.productName}</CardTitle>
@@ -148,8 +151,22 @@ export default function DashboardPage() {
                           : "7日以内"}
                     </Badge>
                   </div>
-                </Card>
-              </Link>
+                </Link>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Link
+                    href={`/scan?jan=${encodeURIComponent(lot.janCode)}&name=${encodeURIComponent(lot.productName)}&spec=${encodeURIComponent(lot.spec)}&quantity=1`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+                  >
+                    入荷する
+                  </Link>
+                  <Link
+                    href={`/inventory/${lot.productId}`}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  >
+                    在庫詳細
+                  </Link>
+                </div>
+              </Card>
             ))}
           </div>
         )}
