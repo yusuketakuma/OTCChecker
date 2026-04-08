@@ -390,6 +390,9 @@ function ScanPageContent() {
         <div className="grid gap-3">
           <Input
             disabled={isSubmitting}
+            inputMode="numeric"
+            autoComplete="off"
+            enterKeyHint="next"
             value={janCode}
             onChange={(event) => handleJanChange(event.target.value)}
             placeholder="JANコード"
@@ -443,6 +446,8 @@ function ScanPageContent() {
               disabled={!isOnline || isSubmitting}
               className="text-center"
               type="number"
+              inputMode="numeric"
+              enterKeyHint="done"
               value={quantity}
               onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
             />

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { fetchJson, postJson } from "@/lib/client";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 import { formatQuantity } from "@/lib/utils";
 
 type ProductMasterSummary = {
@@ -28,6 +29,7 @@ type ProductMasterSummary = {
 export default function ProductsPage() {
   const router = useRouter();
   const pathname = usePathname();
+  const isOnline = useOnlineStatus();
   const [items, setItems] = useState<ProductMasterSummary[]>([]);
   const [query, setQuery] = useState(() => {
     if (typeof window === "undefined") {
@@ -146,11 +148,30 @@ export default function ProductsPage() {
           <Badge tone="neutral">{items.length}件</Badge>
         </div>
         <div className="grid gap-3">
-          <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="商品名" />
-          <Input value={spec} onChange={(event) => setSpec(event.target.value)} placeholder="規格" />
-          <Input value={janCode} onChange={(event) => setJanCode(event.target.value)} placeholder="JANコード" />
+          <Input
+            disabled={!isOnline || creating}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="商品名"
+          />
+          <Input
+            disabled={!isOnline || creating}
+            value={spec}
+            onChange={(event) => setSpec(event.target.value)}
+            placeholder="規格"
+          />
+          <Input
+            disabled={!isOnline || creating}
+            inputMode="numeric"
+            autoComplete="off"
+            enterKeyHint="next"
+            value={janCode}
+            onChange={(event) => setJanCode(event.target.value)}
+            placeholder="JANコード"
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
+              disabled={!isOnline || creating}
               type="date"
               value={expiryDate}
               onChange={(event) => setExpiryDate(event.target.value)}
@@ -158,10 +179,12 @@ export default function ProductsPage() {
             <Input
               min={1}
               type="number"
+              inputMode="numeric"
+              enterKeyHint="done"
               value={quantity}
               onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
               placeholder="初回数量（期限入力時のみ）"
-              disabled={!expiryDate}
+              disabled={!isOnline || creating || !expiryDate}
             />
           </div>
           <p className="text-xs text-slate-500">
@@ -170,11 +193,16 @@ export default function ProductsPage() {
         </div>
         <Button
           className="w-full"
-          disabled={creating || !name.trim() || !spec.trim() || !janCode.trim()}
+          disabled={!isOnline || creating || !name.trim() || !spec.trim() || !janCode.trim()}
           onClick={createProduct}
         >
           {creating ? "登録中..." : expiryDate ? "商品と初回ロットを追加" : "商品マスタを追加"}
         </Button>
+        {!isOnline ? (
+          <p className="text-sm text-[var(--color-danger)]">
+            オフライン中は商品登録を停止しています。接続回復後に登録してください。
+          </p>
+        ) : null}
         {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
         {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
       </Card>
