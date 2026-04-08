@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, putJson } from "@/lib/client";
+import { cn, formatQuantity } from "@/lib/utils";
 
 type PreviewResponse = {
   previewId: string;
@@ -68,6 +69,39 @@ const previewLabel = {
   DUPLICATE: "DUPLICATE",
 } as const;
 
+function summarizePreview(rows: PreviewResponse["rows"]) {
+  return rows.reduce(
+    (summary, row) => {
+      summary.total += 1;
+
+      if (row.status === "MATCHED") {
+        summary.matched += 1;
+      }
+
+      if (row.status === "UNMATCHED") {
+        summary.unmatched += 1;
+      }
+
+      if (row.status === "INSUFFICIENT_STOCK") {
+        summary.insufficientStock += 1;
+      }
+
+      if (row.status === "DUPLICATE") {
+        summary.duplicate += 1;
+      }
+
+      return summary;
+    },
+    {
+      total: 0,
+      matched: 0,
+      unmatched: 0,
+      insufficientStock: 0,
+      duplicate: 0,
+    },
+  );
+}
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -91,6 +125,7 @@ export default function ImportPage() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const previewSummary = preview ? summarizePreview(preview.rows) : null;
 
   function applyUnmatchedRows(rows: UnmatchedRow[]) {
     setUnmatched(rows);
@@ -303,23 +338,56 @@ export default function ImportPage() {
 
       {preview ? (
         <Card className="space-y-4">
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-            <div className="rounded-2xl bg-emerald-50 p-4">
-              <p className="text-xs font-medium text-emerald-700">一致</p>
-              <p className="mt-1 text-2xl font-semibold text-emerald-900">{preview.meta.matchedCount}</p>
-            </div>
-            <div className="rounded-2xl bg-amber-50 p-4">
-              <p className="text-xs font-medium text-amber-700">要確認</p>
-              <p className="mt-1 text-2xl font-semibold text-amber-900">{preview.meta.unmatchedCount}</p>
-            </div>
-            <div className="rounded-2xl bg-slate-100 p-4">
-              <p className="text-xs font-medium text-slate-600">重複</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{preview.meta.duplicateCount}</p>
-            </div>
-            <div className="rounded-2xl bg-sky-50 p-4">
-              <p className="text-xs font-medium text-sky-700">対象行数</p>
-              <p className="mt-1 text-2xl font-semibold text-sky-900">{preview.meta.rowCount}</p>
-            </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            {[
+              {
+                label: "消し込み可能",
+                description: "そのまま実行できる行",
+                value: previewSummary?.matched ?? preview.meta.matchedCount,
+                className: "bg-emerald-50 text-emerald-900",
+                labelClassName: "text-emerald-700",
+              },
+              {
+                label: "商品未一致",
+                description: "商品マスタ未登録",
+                value: previewSummary?.unmatched ?? 0,
+                className: "bg-amber-50 text-amber-900",
+                labelClassName: "text-amber-700",
+              },
+              {
+                label: "在庫不足",
+                description: "未割当対応が必要",
+                value: previewSummary?.insufficientStock ?? 0,
+                className: "bg-rose-50 text-rose-900",
+                labelClassName: "text-rose-700",
+              },
+              {
+                label: "重複行",
+                description: "実行済みの取込行",
+                value: previewSummary?.duplicate ?? preview.meta.duplicateCount,
+                className: "bg-slate-100 text-slate-900",
+                labelClassName: "text-slate-600",
+              },
+              {
+                label: "対象行数",
+                description: "CSV内の総行数",
+                value: previewSummary?.total ?? preview.meta.rowCount,
+                className: "bg-sky-50 text-sky-900 col-span-2 lg:col-span-1",
+                labelClassName: "text-sky-700",
+              },
+            ].map((item) => (
+              <div className={cn("rounded-2xl p-4", item.className)} key={item.label}>
+                <p className={cn("text-xs font-medium", item.labelClassName)}>{item.label}</p>
+                <p className="mt-1 text-2xl font-semibold">{formatQuantity(item.value)}</p>
+                <p className="mt-1 text-xs text-current/70">{item.description}</p>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900">
+            要対応 {formatQuantity(preview.meta.unmatchedCount)} 行
+            <span className="ml-2 text-amber-800/80">
+              商品未一致と在庫不足のみを集計し、重複行は含みません。
+            </span>
           </div>
           <div className="space-y-3">
             {preview.rows.map((row) => (

@@ -421,7 +421,9 @@ export async function buildImportPreview(rows: ImportRow[]) {
     meta: {
       rowCount: previewRows.length,
       matchedCount: previewRows.filter((row) => row.status === "MATCHED").length,
-      unmatchedCount: previewRows.filter((row) => row.status !== "MATCHED").length,
+      unmatchedCount: previewRows.filter(
+        (row) => row.status === "UNMATCHED" || row.status === "INSUFFICIENT_STOCK",
+      ).length,
       duplicateCount: previewRows.filter((row) => row.status === "DUPLICATE").length,
     },
   };

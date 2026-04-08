@@ -19,6 +19,11 @@
 /.open-next/
 .wrangler/
 .openclaw/
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
 
 # production
 /build
