@@ -91,7 +91,11 @@ function ScanPageContent() {
   const isOnline = useOnlineStatus();
   const lookupJanCodeRef = useRef("");
   const appliedPrefillRef = useRef(false);
+  const guidedFocusJanCodeRef = useRef<string | null>(null);
   const janInputRef = useRef<HTMLInputElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const expiryDateInputRef = useRef<HTMLInputElement | null>(null);
+  const quantityInputRef = useRef<HTMLInputElement | null>(null);
   const normalizedJanCode = normalizeJanCode(janCode);
   const parsedQuantity = parsePositiveIntegerInput(quantity);
   const quickQuantityPresets = useMemo(() => {
@@ -315,6 +319,50 @@ function ScanPageContent() {
     };
   }, [isJanComplete, isOnline, normalizedJanCode]);
 
+  useEffect(() => {
+    if (
+      !isOnline ||
+      !isJanComplete ||
+      !currentLookupMatchesJan ||
+      (lookupState.status !== "resolved" && lookupState.status !== "missing")
+    ) {
+      guidedFocusJanCodeRef.current = null;
+      return;
+    }
+
+    if (guidedFocusJanCodeRef.current === normalizedJanCode) {
+      return;
+    }
+
+    const nextTarget =
+      lookupState.status === "missing"
+        ? nameInputRef.current
+        : expiryDate
+          ? quantityInputRef.current
+          : expiryDateInputRef.current;
+
+    if (!nextTarget) {
+      return;
+    }
+
+    guidedFocusJanCodeRef.current = normalizedJanCode;
+
+    const frameId = window.requestAnimationFrame(() => {
+      nextTarget.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [
+    currentLookupMatchesJan,
+    expiryDate,
+    isJanComplete,
+    isOnline,
+    lookupState.status,
+    normalizedJanCode,
+  ]);
+
   function restoreLastSubmittedDraft() {
     if (!lastSubmittedDraft) {
       return;
@@ -480,6 +528,7 @@ function ScanPageContent() {
             ) : null}
           </div>
           <Input
+            ref={nameInputRef}
             disabled={!isOnline || isSubmitting || isLookupPending || Boolean(product)}
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -493,6 +542,7 @@ function ScanPageContent() {
           />
           <div className="space-y-2">
             <Input
+              ref={expiryDateInputRef}
               disabled={!isOnline || isSubmitting}
               type="date"
               value={expiryDate}
@@ -527,6 +577,7 @@ function ScanPageContent() {
               -
             </Button>
             <Input
+              ref={quantityInputRef}
               disabled={!isOnline || isSubmitting}
               className="text-center"
               {...positiveIntegerInputProps}

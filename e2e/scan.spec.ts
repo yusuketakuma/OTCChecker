@@ -7,6 +7,7 @@ test("既存SKUのJAN入力で照会→入荷登録ができる", async ({ page 
   // JAN入力 → 照会完了を待つ
   await page.getByPlaceholder("JANコード").fill("4900000000006");
   await expect(page.getByText("既存SKU")).toBeVisible();
+  await expect(page.locator('input[type="date"]')).toBeFocused();
 
   // 期限日と数量を入力
   await page.locator('input[type="date"]').fill("2030-12-31");
@@ -17,6 +18,9 @@ test("既存SKUのJAN入力で照会→入荷登録ができる", async ({ page 
   // 登録
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page.getByText("既存SKUへ入荷登録しました。")).toBeVisible();
+  await page.getByRole("button", { name: "同じ商品でもう一件" }).click();
+  await expect(page.getByText("既存SKU")).toBeVisible();
+  await expect(qtyInput).toBeFocused();
 
   // 直近読取履歴に JAN が残る
   await expect(page.getByText("4900000000006")).toBeVisible();
@@ -30,6 +34,8 @@ test("未登録JANコードで新規SKU作成→入荷登録ができる", async
 
   // 未登録 JAN を直接入力
   await page.getByPlaceholder("JANコード").fill(janCode);
+  await expect(page.getByText("新規SKU候補")).toBeVisible();
+  await expect(page.getByPlaceholder("商品名")).toBeFocused();
 
   // 商品名・規格を入力
   await page.getByPlaceholder("商品名").fill(`新規スキャンE2E商品${unique}`);
