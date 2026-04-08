@@ -88,6 +88,8 @@ const receiptExpiryPresets = [
   { label: "+180日", days: 180 },
 ] as const;
 
+const quantityPresets = [1, 3, 5, 10] as const;
+
 function readStoredReceiptDefaults() {
   if (typeof window === "undefined") {
     return { expiryDate: "", quantity: 1 };
@@ -630,6 +632,22 @@ export default function ImportPage() {
                             }
                           />
                           <div className="flex flex-wrap gap-2">
+                            {quantityPresets.map((preset) => (
+                              <button
+                                key={`${row.id}-qty-${preset}`}
+                                type="button"
+                                disabled={!isOnline}
+                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                                onClick={() =>
+                                  setReceiptQuantityDrafts((current) => ({
+                                    ...current,
+                                    [row.id]: String(preset),
+                                  }))
+                                }
+                              >
+                                {preset}個
+                              </button>
+                            ))}
                             <button
                               type="button"
                               disabled={!isOnline}

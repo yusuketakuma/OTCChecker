@@ -75,6 +75,8 @@ const saleDatePresets = [
   { label: "7日前", days: -7 },
 ] as const;
 
+const commonQuantityPresets = [1, 3, 5, 10] as const;
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -691,6 +693,19 @@ export default function InventoryDetailPage() {
               value={receiptQuantity}
               onChange={(event) => setReceiptQuantity(event.target.value)}
             />
+            <div className="flex flex-wrap gap-2">
+              {commonQuantityPresets.map((preset) => (
+                <button
+                  key={`receipt-${preset}`}
+                  type="button"
+                  disabled={!isOnline}
+                  className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                  onClick={() => setReceiptQuantity(String(preset))}
+                >
+                  {preset}個
+                </button>
+              ))}
+            </div>
           </div>
           <Button
             className="w-full sm:col-span-2"
@@ -746,6 +761,29 @@ export default function InventoryDetailPage() {
               value={saleQuantity}
               onChange={(event) => setSaleQuantity(event.target.value)}
             />
+            <div className="flex flex-wrap gap-2">
+              {commonQuantityPresets.map((preset) => (
+                <button
+                  key={`sale-${preset}`}
+                  type="button"
+                  disabled={!isOnline}
+                  className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                  onClick={() => setSaleQuantity(String(preset))}
+                >
+                  {preset}個
+                </button>
+              ))}
+              {totalActiveQuantity > 0 ? (
+                <button
+                  type="button"
+                  disabled={!isOnline}
+                  className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 disabled:opacity-50"
+                  onClick={() => setSaleQuantity(String(totalActiveQuantity))}
+                >
+                  全在庫
+                </button>
+              ) : null}
+            </div>
           </div>
           <Button
             className="w-full sm:col-span-2"
@@ -961,6 +999,39 @@ export default function InventoryDetailPage() {
                             }))
                           }
                         />
+                        <div className="flex flex-wrap gap-2">
+                          {commonQuantityPresets
+                            .filter((preset) => preset <= lot.quantity)
+                            .map((preset) => (
+                              <button
+                                key={`${lot.id}-dispose-${preset}`}
+                                type="button"
+                                disabled={disposeInputsDisabled}
+                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+                                onClick={() =>
+                                  setDisposeDrafts((current) => ({
+                                    ...current,
+                                    [lot.id]: String(preset),
+                                  }))
+                                }
+                              >
+                                {preset}個
+                              </button>
+                            ))}
+                          <button
+                            type="button"
+                            disabled={disposeInputsDisabled}
+                            className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 disabled:opacity-50"
+                            onClick={() =>
+                              setDisposeDrafts((current) => ({
+                                ...current,
+                                [lot.id]: String(lot.quantity),
+                              }))
+                            }
+                          >
+                            全量
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <FieldLabel>理由</FieldLabel>
