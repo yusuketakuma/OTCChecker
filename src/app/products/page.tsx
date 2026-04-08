@@ -187,8 +187,8 @@ export default function ProductsPage() {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <Link href={`/inventory/${item.productId}`} key={item.productId}>
-              <Card className="space-y-3">
+            <Card className="space-y-3" key={item.productId}>
+              <Link href={`/inventory/${item.productId}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <CardTitle>{item.name}</CardTitle>
@@ -225,8 +225,22 @@ export default function ProductsPage() {
                   <p>有効ロット: {item.activeLotCount}件</p>
                   <p className="col-span-2">最短期限: {item.earliestExpiry ?? "-"}</p>
                 </div>
-              </Card>
-            </Link>
+              </Link>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Link
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+                  href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
+                >
+                  入荷する
+                </Link>
+                <Link
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  href={`/inventory/${item.productId}`}
+                >
+                  在庫詳細
+                </Link>
+              </div>
+            </Card>
           ))}
         </div>
       )}

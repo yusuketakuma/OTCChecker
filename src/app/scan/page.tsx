@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +62,8 @@ function readStoredReceiptDefaults() {
   }
 }
 
-export default function ScanPage() {
+function ScanPageContent() {
+  const searchParams = useSearchParams();
   const [janCode, setJanCode] = useState("");
   const [lookupState, setLookupState] = useState<LookupState>({
     status: "idle",
@@ -94,6 +96,7 @@ export default function ScanPage() {
   });
   const isOnline = useOnlineStatus();
   const lookupJanCodeRef = useRef("");
+  const appliedPrefillRef = useRef(false);
   const normalizedJanCode = normalizeJanCode(janCode);
   const isJanComplete = /^\d{8,14}$/.test(normalizedJanCode);
   const currentLookupMatchesJan = lookupState.janCode === normalizedJanCode;
@@ -169,6 +172,51 @@ export default function ScanPage() {
       }),
     );
   }, [expiryDate, quantity]);
+
+  useEffect(() => {
+    if (appliedPrefillRef.current) {
+      return;
+    }
+
+    const prefillJan = normalizeJanCode(searchParams.get("jan") ?? "");
+    const prefillName = searchParams.get("name") ?? "";
+    const prefillSpec = searchParams.get("spec") ?? "";
+    const prefillExpiryDate = searchParams.get("expiryDate") ?? "";
+    const prefillQuantityRaw = searchParams.get("quantity") ?? "";
+    const prefillQuantity = Number(prefillQuantityRaw);
+
+    if (!prefillJan && !prefillName && !prefillSpec && !prefillExpiryDate && !prefillQuantityRaw) {
+      appliedPrefillRef.current = true;
+      return;
+    }
+
+    appliedPrefillRef.current = true;
+
+    if (prefillJan) {
+      setJanCode(prefillJan);
+      setLookupState(
+        isOnline
+          ? { status: "pending", janCode: prefillJan }
+          : { status: "idle", janCode: prefillJan },
+      );
+    }
+
+    if (prefillName) {
+      setName(prefillName);
+    }
+
+    if (prefillSpec) {
+      setSpec(prefillSpec);
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(prefillExpiryDate)) {
+      setExpiryDate(prefillExpiryDate);
+    }
+
+    if (Number.isFinite(prefillQuantity) && prefillQuantity > 0) {
+      setQuantity(Math.max(1, Math.trunc(prefillQuantity)));
+    }
+  }, [isOnline, searchParams]);
 
   useEffect(() => {
     if (!isOnline) {
@@ -448,5 +496,13 @@ export default function ScanPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+export default function ScanPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6" />}>
+      <ScanPageContent />
+    </Suspense>
   );
 }
