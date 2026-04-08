@@ -11,6 +11,10 @@
   --color-info: #2f82d6;
   --color-success: #24936b;
   --color-text: #13291f;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 @theme inline {
@@ -33,6 +37,9 @@ body {
     linear-gradient(180deg, #fffaf2 0%, #f7efe2 32%, #f1efe6 100%);
   font-family: var(--font-noto-sans), sans-serif;
   min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -47,6 +54,30 @@ textarea {
   font: inherit;
 }
 
+button,
+input,
+select,
+textarea,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select,
+textarea {
+  appearance: none;
+}
+
 main {
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+html {
+  background: #fffaf2;
+}
+
+body,
+html {
+  overflow-x: hidden;
 }

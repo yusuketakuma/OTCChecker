@@ -60,9 +60,20 @@ export const settingsSchema = z.object({
   defaultAlertDays: alertDaysSchema,
 });
 
-export const unmatchedResolveSchema = z.object({
-  resolutionNote: z.string().min(1).max(200),
-});
+export const unmatchedResolveSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("MARK_RESOLVED"),
+    resolutionNote: z.string().min(1).max(200),
+  }),
+  z.object({
+    action: z.literal("RECEIVE_AND_APPLY"),
+    resolutionNote: z.string().min(1).max(200),
+    expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    receiptQuantity: z.number().int().positive(),
+    productName: z.string().min(1).max(120).optional(),
+    spec: z.string().min(1).max(120).optional(),
+  }),
+]);
 
 export const csvExecuteSchema = z.object({
   previewId: z.string().uuid(),

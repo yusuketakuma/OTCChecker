@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BarcodeFormat, BrowserMultiFormatReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
 import { Camera, Flashlight, ScanLine, StopCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+
+const supportedFormats = [
+  BarcodeFormat.EAN_13,
+  BarcodeFormat.EAN_8,
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.UPC_E,
+] as const;
+
+type ScannerStatus = "idle" | "starting" | "scanning";
 
 export function BarcodeScanner({
   onDetected,
@@ -19,10 +28,50 @@ export function BarcodeScanner({
   const controlsRef = useRef<IScannerControls | null>(null);
   const detectorFrameRef = useRef<number | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const [active, setActive] = useState(false);
+  const [status, setStatus] = useState<ScannerStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
+
+  const active = status === "scanning";
+  const engaged = status !== "idle";
+
+  function isSupportedJan(value: string) {
+    return /^\d{8,14}$/.test(value);
+  }
+
+  function handleDetected(rawValue: string) {
+    if (!isSupportedJan(rawValue)) {
+      return;
+    }
+
+    navigator.vibrate?.(50);
+    onDetected(rawValue);
+    stop();
+  }
+
+  async function buildVideoConstraints() {
+    const constraints: MediaTrackConstraints = {
+      facingMode: { ideal: "environment" },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    };
+
+    try {
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+      const backCamera = devices.find((device) =>
+        /back|rear|environment|後|背面/i.test(device.label),
+      );
+
+      if (backCamera?.deviceId) {
+        constraints.deviceId = { ideal: backCamera.deviceId };
+      }
+    } catch {
+      return { video: constraints, audio: false };
+    }
+
+    return { video: constraints, audio: false };
+  }
 
   async function initializeTorchState(stream: MediaStream) {
     mediaStreamRef.current = stream;
@@ -36,10 +85,7 @@ export function BarcodeScanner({
   async function startWithBarcodeDetector(BarcodeDetectorCtor: new (options?: {
     formats?: string[];
   }) => { detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>> }) {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
-      audio: false,
-    });
+    const stream = await navigator.mediaDevices.getUserMedia(await buildVideoConstraints());
 
     if (!videoRef.current) {
       throw new Error("VIDEO_ELEMENT_MISSING");
@@ -50,7 +96,7 @@ export function BarcodeScanner({
     await initializeTorchState(stream);
 
     const detector = new BarcodeDetectorCtor({
-      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"],
+      formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
     });
 
     const scanFrame = async () => {
@@ -64,9 +110,7 @@ export function BarcodeScanner({
           const value = detected[0]?.rawValue;
 
           if (value) {
-            navigator.vibrate?.(50);
-            onDetected(value);
-            stop();
+            handleDetected(value);
             return;
           }
         }
@@ -85,17 +129,20 @@ export function BarcodeScanner({
   }
 
   async function startWithZxing() {
+    if (!videoRef.current) {
+      throw new Error("VIDEO_ELEMENT_MISSING");
+    }
+
     const reader = new BrowserMultiFormatReader();
+    reader.possibleFormats = [...supportedFormats];
     readerRef.current = reader;
 
-    controlsRef.current = await reader.decodeFromVideoDevice(
-      undefined,
-      videoRef.current!,
+    controlsRef.current = await reader.decodeFromConstraints(
+      await buildVideoConstraints(),
+      videoRef.current,
       (result, err) => {
         if (result) {
-          navigator.vibrate?.(50);
-          onDetected(result.getText());
-          stop();
+          handleDetected(result.getText());
           return;
         }
 
@@ -113,14 +160,14 @@ export function BarcodeScanner({
   }
 
   async function start() {
-    if (disabled) {
+    if (disabled || engaged) {
       return;
     }
 
     setError(null);
+    setStatus("starting");
 
     try {
-      setActive(true);
       const BarcodeDetectorCtor = (
         globalThis as unknown as {
           BarcodeDetector?: new (options?: {
@@ -131,15 +178,18 @@ export function BarcodeScanner({
 
       if (BarcodeDetectorCtor) {
         await startWithBarcodeDetector(BarcodeDetectorCtor);
+        setStatus("scanning");
         return;
       }
 
       await startWithZxing();
+      setStatus("scanning");
     } catch {
       try {
         stop();
-        setActive(true);
+        setStatus("starting");
         await startWithZxing();
+        setStatus("scanning");
       } catch {
         setError("カメラを開始できませんでした。Safari の権限設定を確認してください。");
         stop();
@@ -165,7 +215,7 @@ export function BarcodeScanner({
 
     setTorchSupported(false);
     setTorchEnabled(false);
-    setActive(false);
+    setStatus("idle");
   }
 
   async function toggleTorch() {
@@ -193,13 +243,19 @@ export function BarcodeScanner({
 
   useEffect(() => stop, []);
 
+  useEffect(() => {
+    if (disabled && engaged) {
+      stop();
+    }
+  }, [disabled, engaged]);
+
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-[28px] border border-white/70 bg-slate-950">
         <video ref={videoRef} className="aspect-[3/4] w-full object-cover" muted playsInline />
       </div>
       <div className="flex gap-3">
-        {active ? (
+        {engaged ? (
           <Button className="flex-1" variant="danger" onClick={stop}>
             <StopCircle className="mr-2 h-4 w-4" />
             スキャン停止
@@ -210,7 +266,13 @@ export function BarcodeScanner({
             カメラで読む
           </Button>
         )}
-        <Button className="w-14" disabled={disabled} size="icon" variant="secondary" onClick={start}>
+        <Button
+          className="w-14"
+          disabled={disabled || engaged}
+          size="icon"
+          variant="secondary"
+          onClick={start}
+        >
           <Camera className="h-5 w-5" />
         </Button>
         <Button
@@ -223,9 +285,16 @@ export function BarcodeScanner({
           <Flashlight className={`h-5 w-5 ${torchEnabled ? "text-amber-500" : ""}`} />
         </Button>
       </div>
+      {status === "starting" ? (
+        <p className="text-xs text-slate-500">
+          カメラ権限を確認し、背面カメラで JAN を探しています。
+        </p>
+      ) : null}
       {active ? (
         <p className="text-xs text-slate-500">
-          {torchSupported ? "ライト切替に対応しています。" : "この端末ではライト切替に未対応です。"}
+          {torchSupported
+            ? "背面カメラで読取中です。必要ならライトを点灯できます。"
+            : "背面カメラで読取中です。JAN が枠中央に収まるよう近づけてください。"}
         </p>
       ) : null}
       {disabled ? (

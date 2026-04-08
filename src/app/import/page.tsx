@@ -46,6 +46,12 @@ type UnmatchedRow = {
   sourceRowNo: number | null;
   transactionDate: string | null;
   resolutionNote: string | null;
+  matchedProduct: {
+    id: string;
+    name: string;
+    spec: string;
+    janCode: string;
+  } | null;
 };
 
 const previewTone = {
@@ -62,34 +68,59 @@ const previewLabel = {
   DUPLICATE: "DUPLICATE",
 } as const;
 
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+      {children}
+    </p>
+  );
+}
+
 export default function ImportPage() {
   const isOnline = useOnlineStatus();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [unmatched, setUnmatched] = useState<UnmatchedRow[]>([]);
   const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, string>>({});
+  const [receiptQuantityDrafts, setReceiptQuantityDrafts] = useState<Record<string, number>>({});
+  const [expiryDateDrafts, setExpiryDateDrafts] = useState<Record<string, string>>({});
+  const [productNameDrafts, setProductNameDrafts] = useState<Record<string, string>>({});
+  const [specDrafts, setSpecDrafts] = useState<Record<string, string>>({});
   const [previewing, setPreviewing] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function loadUnmatched() {
-    const rows = await fetchJson<UnmatchedRow[]>("/api/unmatched");
+  function applyUnmatchedRows(rows: UnmatchedRow[]) {
     setUnmatched(rows);
     setResolutionDrafts(
       Object.fromEntries(rows.map((row) => [row.id, row.resolutionNote ?? "確認済み"])),
     );
+    setReceiptQuantityDrafts(
+      Object.fromEntries(rows.map((row) => [row.id, row.remainingQuantity])),
+    );
+    setExpiryDateDrafts(
+      Object.fromEntries(rows.map((row) => [row.id, ""])),
+    );
+    setProductNameDrafts(
+      Object.fromEntries(
+        rows.map((row) => [row.id, row.matchedProduct?.name ?? row.rawProductName ?? ""]),
+      ),
+    );
+    setSpecDrafts(
+      Object.fromEntries(rows.map((row) => [row.id, row.matchedProduct?.spec ?? ""])),
+    );
+  }
+
+  async function loadUnmatched() {
+    const rows = await fetchJson<UnmatchedRow[]>("/api/unmatched");
+    applyUnmatchedRows(rows);
   }
 
   useEffect(() => {
     fetchJson<UnmatchedRow[]>("/api/unmatched")
-      .then((rows) => {
-        setUnmatched(rows);
-        setResolutionDrafts(
-          Object.fromEntries(rows.map((row) => [row.id, row.resolutionNote ?? "確認済み"])),
-        );
-      })
+      .then(applyUnmatchedRows)
       .catch(() => undefined);
   }, [message]);
 
@@ -165,9 +196,58 @@ export default function ImportPage() {
 
     try {
       await putJson(`/api/unmatched/${row.id}/resolve`, {
+        action: "MARK_RESOLVED",
         resolutionNote: note,
       });
       setMessage("未割当を解決済みにしました。");
+      setError("");
+      await loadUnmatched();
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setResolvingId(null);
+    }
+  }
+
+  async function receiveAndApply(row: UnmatchedRow) {
+    const note = resolutionDrafts[row.id]?.trim();
+    const expiryDate = expiryDateDrafts[row.id]?.trim();
+    const receiptQuantity = receiptQuantityDrafts[row.id] ?? 0;
+    const productName = productNameDrafts[row.id]?.trim();
+    const spec = specDrafts[row.id]?.trim();
+
+    if (!note) {
+      setError("反映処理にも理由メモが必要です。");
+      return;
+    }
+
+    if (!expiryDate) {
+      setError("入荷して反映するには期限日が必要です。");
+      return;
+    }
+
+    if (receiptQuantity <= 0) {
+      setError("入荷数量は1以上で入力してください。");
+      return;
+    }
+
+    if (!row.matchedProduct && (!productName || !spec)) {
+      setError("商品作成には商品名と規格が必要です。");
+      return;
+    }
+
+    setResolvingId(row.id);
+
+    try {
+      await putJson(`/api/unmatched/${row.id}/resolve`, {
+        action: "RECEIVE_AND_APPLY",
+        resolutionNote: note,
+        expiryDate,
+        receiptQuantity,
+        productName: row.matchedProduct ? undefined : productName,
+        spec: row.matchedProduct ? undefined : spec,
+      });
+      setMessage("未割当を在庫へ反映しました。");
       setError("");
       await loadUnmatched();
     } catch (cause) {
@@ -199,7 +279,7 @@ export default function ImportPage() {
             選択中: {file.name}
           </p>
         ) : null}
-        <div className="flex gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Button className="flex-1" disabled={!isOnline || !file || previewing} onClick={previewFile}>
             {previewing ? "プレビュー中..." : "プレビュー"}
           </Button>
@@ -223,7 +303,7 @@ export default function ImportPage() {
 
       {preview ? (
         <Card className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
             <div className="rounded-2xl bg-emerald-50 p-4">
               <p className="text-xs font-medium text-emerald-700">一致</p>
               <p className="mt-1 text-2xl font-semibold text-emerald-900">{preview.meta.matchedCount}</p>
@@ -257,7 +337,7 @@ export default function ImportPage() {
                     {previewLabel[row.status]}
                   </Badge>
                 </div>
-                <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
+                <div className="mt-3 grid gap-2 text-sm text-slate-600 grid-cols-1 sm:grid-cols-3">
                   <p>取引日: {row.transactionDate || "-"}</p>
                   <p>引当: {row.appliedQuantity}</p>
                   <p>残数: {row.remainingQuantity}</p>
@@ -286,28 +366,120 @@ export default function ImportPage() {
                   </div>
                   <Badge tone={row.reason === "NO_PRODUCT" ? "warning" : "neutral"}>{row.reason}</Badge>
                 </div>
-                <div className="grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
+                <div className="grid gap-2 text-sm text-slate-600 grid-cols-1 sm:grid-cols-3">
                   <p>要求数: {row.requestedQuantity}</p>
                   <p>適用数: {row.appliedQuantity}</p>
                   <p>残数: {row.remainingQuantity}</p>
                 </div>
-                <Textarea
-                  value={resolutionDrafts[row.id] ?? ""}
-                  onChange={(event) =>
-                    setResolutionDrafts((current) => ({
-                      ...current,
-                      [row.id]: event.target.value,
-                    }))
-                  }
-                  placeholder="解決メモを入力"
-                />
-                <Button
-                  disabled={!isOnline || resolvingId === row.id}
-                  variant="secondary"
-                  onClick={() => resolveUnmatched(row)}
-                >
-                  {resolvingId === row.id ? "更新中..." : "解決済みにする"}
-                </Button>
+                {row.matchedProduct ? (
+                  <div className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900">
+                    <p className="font-medium">既存商品候補</p>
+                    <p className="mt-1">
+                      {row.matchedProduct.name} / {row.matchedProduct.spec}
+                    </p>
+                  </div>
+                ) : null}
+                {row.reason !== "DUPLICATE_ROW" ? (
+                  <div className="space-y-3">
+                    {!row.matchedProduct ? (
+                      <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                        <FieldLabel>商品マスタ作成</FieldLabel>
+                        <Input
+                          disabled={!isOnline}
+                          value={productNameDrafts[row.id] ?? ""}
+                          onChange={(event) =>
+                            setProductNameDrafts((current) => ({
+                              ...current,
+                              [row.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="商品名"
+                        />
+                        <Input
+                          disabled={!isOnline}
+                          value={specDrafts[row.id] ?? ""}
+                          onChange={(event) =>
+                            setSpecDrafts((current) => ({
+                              ...current,
+                              [row.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="規格"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                      <FieldLabel>不足分を入荷して反映</FieldLabel>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <FieldLabel>期限日</FieldLabel>
+                          <Input
+                            disabled={!isOnline}
+                            type="date"
+                            value={expiryDateDrafts[row.id] ?? ""}
+                            onChange={(event) =>
+                              setExpiryDateDrafts((current) => ({
+                                ...current,
+                                [row.id]: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <FieldLabel>入荷数量</FieldLabel>
+                          <Input
+                            disabled={!isOnline}
+                            min={1}
+                            type="number"
+                            value={receiptQuantityDrafts[row.id] ?? row.remainingQuantity}
+                            onChange={(event) =>
+                              setReceiptQuantityDrafts((current) => ({
+                                ...current,
+                                [row.id]: Math.max(1, Number(event.target.value)),
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="space-y-2">
+                  <FieldLabel>解決メモ</FieldLabel>
+                  <Textarea
+                    value={resolutionDrafts[row.id] ?? ""}
+                    onChange={(event) =>
+                      setResolutionDrafts((current) => ({
+                        ...current,
+                        [row.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="解決メモを入力"
+                  />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {row.reason !== "DUPLICATE_ROW" ? (
+                    <Button
+                      className="w-full"
+                      disabled={!isOnline || resolvingId === row.id}
+                      onClick={() => receiveAndApply(row)}
+                    >
+                      {resolvingId === row.id
+                        ? "反映中..."
+                        : row.matchedProduct
+                          ? "入荷して売上反映"
+                          : "商品作成して売上反映"}
+                    </Button>
+                  ) : null}
+                  <Button
+                    className="w-full"
+                    disabled={!isOnline || resolvingId === row.id}
+                    variant="secondary"
+                    onClick={() => resolveUnmatched(row)}
+                  >
+                    {resolvingId === row.id ? "更新中..." : "メモのみで解決"}
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>

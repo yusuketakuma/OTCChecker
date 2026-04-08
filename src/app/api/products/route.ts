@@ -1,7 +1,7 @@
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { fail, ok } from "@/lib/api";
-import { listProductSummaries } from "@/lib/inventory";
+import { listProductMasters, listProductSummaries } from "@/lib/inventory";
 import { getSettings } from "@/lib/settings";
 import { productSchema } from "@/lib/validators";
 import { prisma } from "@/lib/prisma";
@@ -9,10 +9,16 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const data = await listProductSummaries({
-      search: searchParams.get("q") ?? "",
-      bucket: searchParams.get("bucket") ?? "all",
-    });
+    const mode = searchParams.get("mode") ?? "inventory";
+    const data =
+      mode === "master"
+        ? await listProductMasters({
+            search: searchParams.get("q") ?? "",
+          })
+        : await listProductSummaries({
+            search: searchParams.get("q") ?? "",
+            bucket: searchParams.get("bucket") ?? "all",
+          });
 
     return ok(data);
   } catch (error) {

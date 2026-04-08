@@ -2,6 +2,7 @@ import {
   ImportBatchStatus,
   InventoryLotStatus,
   Prisma,
+  type Product,
   UnmatchedReason,
 } from "@prisma/client";
 
@@ -17,6 +18,18 @@ export type ProductInventorySummary = {
   earliestExpiry: string | null;
   totalQuantity: number;
   bucket: "expired" | "within7" | "within30" | "safe";
+};
+
+export type ProductMasterSummary = {
+  productId: string;
+  name: string;
+  spec: string;
+  janCode: string;
+  alertDays: number[];
+  earliestExpiry: string | null;
+  totalQuantity: number;
+  activeLotCount: number;
+  bucket: "expired" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 export async function listProductSummaries(params: {
@@ -96,6 +109,84 @@ export async function listProductSummaries(params: {
     }
 
     return true;
+  });
+}
+
+export async function listProductMasters(params: {
+  search?: string;
+}) {
+  const search = params.search?.trim();
+  const [products, activeLots] = await Promise.all([
+    prisma.product.findMany({
+      where: search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { janCode: { contains: search } },
+            ],
+          }
+        : undefined,
+      orderBy: [{ name: "asc" }, { createdAt: "desc" }],
+    }),
+    prisma.inventoryLot.findMany({
+      where: {
+        status: InventoryLotStatus.ACTIVE,
+        product: search
+          ? {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { janCode: { contains: search } },
+              ],
+            }
+          : undefined,
+      },
+      orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    }),
+  ]);
+
+  const lotsByProductId = activeLots.reduce<Map<string, typeof activeLots>>((map, lot) => {
+    const current = map.get(lot.productId) ?? [];
+    current.push(lot);
+    map.set(lot.productId, current);
+    return map;
+  }, new Map());
+
+  return products.map<ProductMasterSummary>((product) => {
+    const lots = lotsByProductId.get(product.id) ?? [];
+    const earliestLot = lots[0];
+    const totalQuantity = lots.reduce((sum, lot) => sum + lot.quantity, 0);
+    const bucket = earliestLot
+      ? (() => {
+          const diffDays = diffDaysFromToday(earliestLot.expiryDate);
+          const expiryBucket = getExpiryBucket(diffDays);
+
+          if (expiryBucket === "expired") {
+            return "expired";
+          }
+
+          if (expiryBucket === "today" || expiryBucket === "within7") {
+            return "within7";
+          }
+
+          if (expiryBucket === "within30") {
+            return "within30";
+          }
+
+          return "safe";
+        })()
+      : "outOfStock";
+
+    return {
+      productId: product.id,
+      name: product.name,
+      spec: product.spec,
+      janCode: product.janCode,
+      alertDays: product.alertDays,
+      earliestExpiry: earliestLot ? formatDateLabel(earliestLot.expiryDate) : null,
+      totalQuantity,
+      activeLotCount: lots.length,
+      bucket,
+    };
   });
 }
 
@@ -460,58 +551,13 @@ export async function executeManualSale(params: {
       throw new Error("PRODUCT_NOT_FOUND");
     }
 
-    const lots = await tx.inventoryLot.findMany({
-      where: {
-        productId: params.productId,
-        status: InventoryLotStatus.ACTIVE,
-      },
-      orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-    });
-
-    const allocation = allocateLots(
-      lots.map((lot) => ({ id: lot.id, quantity: lot.quantity })),
-      params.quantity,
-    );
-
-    if (allocation.remainingQuantity > 0) {
-      throw new Error("INSUFFICIENT_STOCK");
-    }
-
-    const transactionDate = params.transactionDate
-      ? parseDateOnly(params.transactionDate)
-      : null;
     const manualSaleId = crypto.randomUUID();
-
-    for (const item of allocation.allocations) {
-      const lot = lots.find((entry) => entry.id === item.lotId);
-
-      if (!lot) {
-        continue;
-      }
-
-      const nextQuantity = lot.quantity - item.quantity;
-
-      await tx.inventoryLot.update({
-        where: { id: item.lotId },
-        data: {
-          quantity: nextQuantity,
-          version: { increment: 1 },
-          status: nextQuantity === 0 ? InventoryLotStatus.ARCHIVED : undefined,
-          archivedAt: nextQuantity === 0 ? new Date() : undefined,
-        },
-      });
-
-      await tx.salesRecord.create({
-        data: {
-          lotId: item.lotId,
-          quantity: item.quantity,
-          source: "MANUAL",
-          posTransactionId: manualSaleId,
-          transactionDate,
-          dedupeKey: `manual:${manualSaleId}:${item.lotId}`,
-        },
-      });
-    }
+    const allocation = await applyManualSaleInTx(tx, {
+      productId: params.productId,
+      quantity: params.quantity,
+      transactionDate: params.transactionDate ? parseDateOnly(params.transactionDate) : null,
+      saleId: manualSaleId,
+    });
 
     return {
       productId: params.productId,
@@ -519,6 +565,223 @@ export async function executeManualSale(params: {
       transactionDate: params.transactionDate ?? null,
       saleId: manualSaleId,
       allocations: allocation.allocations,
+    };
+  });
+}
+
+async function receiveStockInTx(
+  tx: Prisma.TransactionClient,
+  params: { productId: string; expiryDate: string; quantity: number },
+) {
+  const expiryDate = parseDateOnly(params.expiryDate);
+  const existing = await tx.inventoryLot.findFirst({
+    where: {
+      productId: params.productId,
+      expiryDate,
+      status: InventoryLotStatus.ACTIVE,
+    },
+  });
+
+  if (existing) {
+    const lot = await tx.inventoryLot.update({
+      where: { id: existing.id },
+      data: {
+        quantity: existing.quantity + params.quantity,
+        initialQuantity: existing.initialQuantity + params.quantity,
+        version: { increment: 1 },
+      },
+    });
+
+    await tx.receiptRecord.create({
+      data: {
+        lotId: existing.id,
+        quantity: params.quantity,
+      },
+    });
+
+    return lot;
+  }
+
+  const lot = await tx.inventoryLot.create({
+    data: {
+      productId: params.productId,
+      expiryDate,
+      quantity: params.quantity,
+      initialQuantity: params.quantity,
+    },
+  });
+
+  await tx.receiptRecord.create({
+    data: {
+      lotId: lot.id,
+      quantity: params.quantity,
+    },
+  });
+
+  return lot;
+}
+
+async function applyManualSaleInTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    productId: string;
+    quantity: number;
+    transactionDate: Date | null;
+    saleId: string;
+  },
+) {
+  const lots = await tx.inventoryLot.findMany({
+    where: {
+      productId: params.productId,
+      status: InventoryLotStatus.ACTIVE,
+    },
+    orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+  });
+
+  const allocation = allocateLots(
+    lots.map((lot) => ({ id: lot.id, quantity: lot.quantity })),
+    params.quantity,
+  );
+
+  if (allocation.remainingQuantity > 0) {
+    throw new Error("INSUFFICIENT_STOCK");
+  }
+
+  for (const item of allocation.allocations) {
+    const lot = lots.find((entry) => entry.id === item.lotId);
+
+    if (!lot) {
+      continue;
+    }
+
+    const nextQuantity = lot.quantity - item.quantity;
+
+    await tx.inventoryLot.update({
+      where: { id: item.lotId },
+      data: {
+        quantity: nextQuantity,
+        version: { increment: 1 },
+        status: nextQuantity === 0 ? InventoryLotStatus.ARCHIVED : undefined,
+        archivedAt: nextQuantity === 0 ? new Date() : undefined,
+      },
+    });
+
+    await tx.salesRecord.create({
+      data: {
+        lotId: item.lotId,
+        quantity: item.quantity,
+        source: "MANUAL",
+        posTransactionId: params.saleId,
+        transactionDate: params.transactionDate,
+        dedupeKey: `manual:${params.saleId}:${item.lotId}`,
+      },
+    });
+  }
+
+  return allocation;
+}
+
+export async function resolveUnmatchedSale(params: {
+  unmatchedId: string;
+  action: "MARK_RESOLVED" | "RECEIVE_AND_APPLY";
+  resolutionNote: string;
+  expiryDate?: string;
+  receiptQuantity?: number;
+  productName?: string;
+  spec?: string;
+  defaultAlertDays?: number[];
+}) {
+  return prisma.$transaction(async (tx) => {
+    const unmatched = await tx.unmatchedSale.findUnique({
+      where: { id: params.unmatchedId },
+    });
+
+    if (!unmatched) {
+      throw new Error("UNMATCHED_NOT_FOUND");
+    }
+
+    if (unmatched.resolved) {
+      throw new Error("UNMATCHED_ALREADY_RESOLVED");
+    }
+
+    if (params.action === "MARK_RESOLVED") {
+      return tx.unmatchedSale.update({
+        where: { id: params.unmatchedId },
+        data: {
+          reason: UnmatchedReason.MANUAL_RESOLUTION,
+          resolved: true,
+          resolutionNote: params.resolutionNote,
+        },
+      });
+    }
+
+    if (!params.expiryDate || !params.receiptQuantity) {
+      throw new Error("RECEIPT_INPUT_REQUIRED");
+    }
+
+    const janCode = normalizeJanCode(unmatched.janCode);
+
+    if (!janCode) {
+      throw new Error("JAN_CODE_REQUIRED");
+    }
+
+    let product: Pick<Product, "id" | "name" | "spec" | "janCode"> | null =
+      await tx.product.findUnique({
+        where: { janCode },
+        select: {
+          id: true,
+          name: true,
+          spec: true,
+          janCode: true,
+        },
+      });
+
+    if (!product) {
+      if (!params.productName || !params.spec) {
+        throw new Error("PRODUCT_INPUT_REQUIRED");
+      }
+
+      product = await tx.product.create({
+        data: {
+          name: params.productName,
+          spec: params.spec,
+          janCode,
+          alertDays: params.defaultAlertDays ?? [30, 7, 0],
+        },
+        select: {
+          id: true,
+          name: true,
+          spec: true,
+          janCode: true,
+        },
+      });
+    }
+
+    await receiveStockInTx(tx, {
+      productId: product.id,
+      expiryDate: params.expiryDate,
+      quantity: params.receiptQuantity,
+    });
+
+    await applyManualSaleInTx(tx, {
+      productId: product.id,
+      quantity: unmatched.remainingQuantity,
+      transactionDate: unmatched.transactionDate,
+      saleId: `unmatched:${unmatched.id}:${crypto.randomUUID()}`,
+    });
+
+    const resolved = await tx.unmatchedSale.update({
+      where: { id: params.unmatchedId },
+      data: {
+        reason: UnmatchedReason.MANUAL_RESOLUTION,
+        resolved: true,
+        resolutionNote: params.resolutionNote,
+      },
+    });
+
+    return {
+      unmatched: resolved,
+      product,
     };
   });
 }

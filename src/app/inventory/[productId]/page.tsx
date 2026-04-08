@@ -50,6 +50,14 @@ const historyTabs: Array<{ key: HistoryTab; label: string }> = [
   { key: "adjustments", label: "調整" },
 ];
 
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+      {children}
+    </p>
+  );
+}
+
 export default function InventoryDetailPage() {
   const params = useParams<{ productId: string }>();
   const productId = params.productId;
@@ -168,6 +176,7 @@ export default function InventoryDetailPage() {
     setSaving(true);
 
     try {
+      setError("");
       setMessage("");
       await putJson(`/api/products/${product.id}`, {
         name: editName,
@@ -188,6 +197,7 @@ export default function InventoryDetailPage() {
 
   async function updateLot(lot: Lot) {
     try {
+      setError("");
       setMessage("");
       await putJson(`/api/lots/${lot.id}`, {
         quantity: qtyDrafts[lot.id],
@@ -203,6 +213,7 @@ export default function InventoryDetailPage() {
 
   async function disposeLot(lot: Lot) {
     try {
+      setError("");
       setMessage("");
       await postJson(`/api/lots/${lot.id}/dispose`, {
         quantity: disposeDrafts[lot.id],
@@ -218,6 +229,7 @@ export default function InventoryDetailPage() {
 
   async function adjustLot(lot: Lot) {
     try {
+      setError("");
       setMessage("");
       await postJson(`/api/lots/${lot.id}/adjust`, {
         delta: adjustDrafts[lot.id],
@@ -237,6 +249,7 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setError("");
       setMessage("");
       await fetchJson(`/api/lots/${lot.id}`, { method: "DELETE" });
       setMessage("ロットを削除しました。");
@@ -253,6 +266,7 @@ export default function InventoryDetailPage() {
     }
 
     try {
+      setError("");
       setMessage("");
       await postJson("/api/lots", {
         productId: product.id,
@@ -274,6 +288,7 @@ export default function InventoryDetailPage() {
     setSelling(true);
 
     try {
+      setError("");
       setMessage("");
       await postJson(`/api/products/${product.id}/sales`, {
         quantity: saleQuantity,
@@ -305,17 +320,26 @@ export default function InventoryDetailPage() {
       ) : null}
 
       <Card className="space-y-4">
-        <div className="grid gap-3">
-          <Input disabled={!isOnline} value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="商品名" />
-          <Input disabled={!isOnline} value={editSpec} onChange={(event) => setEditSpec(event.target.value)} placeholder="規格" />
-          <Input
-            disabled={!isOnline}
-            value={editAlertDays}
-            onChange={(event) => setEditAlertDays(event.target.value)}
-            placeholder="30,7,0"
-          />
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <FieldLabel>商品名</FieldLabel>
+            <Input disabled={!isOnline} value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="商品名" />
+          </div>
+          <div className="space-y-2">
+            <FieldLabel>規格</FieldLabel>
+            <Input disabled={!isOnline} value={editSpec} onChange={(event) => setEditSpec(event.target.value)} placeholder="規格" />
+          </div>
+          <div className="space-y-2">
+            <FieldLabel>アラート日数</FieldLabel>
+            <Input
+              disabled={!isOnline}
+              value={editAlertDays}
+              onChange={(event) => setEditAlertDays(event.target.value)}
+              placeholder="30,7,0"
+            />
+          </div>
         </div>
-        <Button disabled={!isOnline || saving} onClick={saveProduct}>
+        <Button className="w-full" disabled={!isOnline || saving} onClick={saveProduct}>
           商品マスタを更新
         </Button>
       </Card>
@@ -323,21 +347,27 @@ export default function InventoryDetailPage() {
       <Card className="space-y-4">
         <CardTitle>手動入荷登録</CardTitle>
         <CardDescription>バーコードが使えない場合も、この商品へ直接入荷を追加できます。</CardDescription>
-        <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
-          <Input
-            disabled={!isOnline}
-            type="date"
-            value={receiptExpiryDate}
-            onChange={(event) => setReceiptExpiryDate(event.target.value)}
-          />
-          <Input
-            disabled={!isOnline}
-            type="number"
-            min={1}
-            value={receiptQuantity}
-            onChange={(event) => setReceiptQuantity(Math.max(1, Number(event.target.value)))}
-          />
-          <Button disabled={!isOnline || !receiptExpiryDate} onClick={receiveStock}>
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+          <div className="space-y-2">
+            <FieldLabel>期限日</FieldLabel>
+            <Input
+              disabled={!isOnline}
+              type="date"
+              value={receiptExpiryDate}
+              onChange={(event) => setReceiptExpiryDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <FieldLabel>数量</FieldLabel>
+            <Input
+              disabled={!isOnline}
+              type="number"
+              min={1}
+              value={receiptQuantity}
+              onChange={(event) => setReceiptQuantity(Math.max(1, Number(event.target.value)))}
+            />
+          </div>
+          <Button className="w-full sm:col-span-2" disabled={!isOnline || !receiptExpiryDate} onClick={receiveStock}>
             入荷登録
           </Button>
         </div>
@@ -346,21 +376,27 @@ export default function InventoryDetailPage() {
       <Card className="space-y-4">
         <CardTitle>手動売上登録</CardTitle>
         <CardDescription>CSV を待たずに、その場の販売や補正売上を FIFO で反映します。</CardDescription>
-        <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
-          <Input
-            disabled={!isOnline}
-            type="date"
-            value={saleDate}
-            onChange={(event) => setSaleDate(event.target.value)}
-          />
-          <Input
-            disabled={!isOnline}
-            type="number"
-            min={1}
-            value={saleQuantity}
-            onChange={(event) => setSaleQuantity(Math.max(1, Number(event.target.value)))}
-          />
-          <Button disabled={!isOnline || !saleDate || selling} variant="secondary" onClick={recordManualSale}>
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+          <div className="space-y-2">
+            <FieldLabel>売上日</FieldLabel>
+            <Input
+              disabled={!isOnline}
+              type="date"
+              value={saleDate}
+              onChange={(event) => setSaleDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <FieldLabel>数量</FieldLabel>
+            <Input
+              disabled={!isOnline}
+              type="number"
+              min={1}
+              value={saleQuantity}
+              onChange={(event) => setSaleQuantity(Math.max(1, Number(event.target.value)))}
+            />
+          </div>
+          <Button className="w-full sm:col-span-2" disabled={!isOnline || !saleDate || selling} variant="secondary" onClick={recordManualSale}>
             {selling ? "登録中..." : "売上登録"}
           </Button>
         </div>
@@ -386,62 +422,81 @@ export default function InventoryDetailPage() {
                   </div>
                   <Badge tone={lot.status === "ACTIVE" ? "success" : "neutral"}>{lot.status}</Badge>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    disabled={!isOnline}
-                    type="number"
-                    value={qtyDrafts[lot.id] ?? lot.quantity}
-                    onChange={(event) =>
-                      setQtyDrafts((current) => ({
-                        ...current,
-                        [lot.id]: Number(event.target.value),
-                      }))
-                    }
-                  />
-                  <Input
-                    disabled={!isOnline}
-                    value={reasonDrafts[lot.id] ?? ""}
-                    onChange={(event) =>
-                      setReasonDrafts((current) => ({
-                        ...current,
-                        [lot.id]: event.target.value,
-                      }))
-                    }
-                    placeholder="修正理由"
-                  />
+                <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                  <FieldLabel>数量を上書き</FieldLabel>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <FieldLabel>現在庫</FieldLabel>
+                      <Input
+                        disabled={!isOnline}
+                        type="number"
+                        value={qtyDrafts[lot.id] ?? lot.quantity}
+                        onChange={(event) =>
+                          setQtyDrafts((current) => ({
+                            ...current,
+                            [lot.id]: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel>理由</FieldLabel>
+                      <Input
+                        disabled={!isOnline}
+                        value={reasonDrafts[lot.id] ?? ""}
+                        onChange={(event) =>
+                          setReasonDrafts((current) => ({
+                            ...current,
+                            [lot.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="修正理由"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button className="w-full" disabled={!isOnline} variant="secondary" onClick={() => updateLot(lot)}>
+                      数量更新
+                    </Button>
+                    <Button className="w-full" disabled={!isOnline} variant="danger" onClick={() => deleteLot(lot)}>
+                      ロット削除
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button disabled={!isOnline} variant="secondary" onClick={() => updateLot(lot)}>
-                    数量更新
-                  </Button>
-                  <Button disabled={!isOnline} variant="danger" onClick={() => deleteLot(lot)}>
-                    ロット削除
-                  </Button>
-                </div>
-                <div className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-[100px_1fr_auto]">
-                  <Input
-                    disabled={!isOnline}
-                    type="number"
-                    value={adjustDrafts[lot.id] ?? 0}
-                    onChange={(event) =>
-                      setAdjustDrafts((current) => ({
-                        ...current,
-                        [lot.id]: Number(event.target.value),
-                      }))
-                    }
-                  />
-                  <Input
-                    disabled={!isOnline}
-                    value={adjustReasons[lot.id] ?? ""}
-                    onChange={(event) =>
-                      setAdjustReasons((current) => ({
-                        ...current,
-                        [lot.id]: event.target.value,
-                      }))
-                    }
-                    placeholder="差分調整理由"
-                  />
+                <div className="space-y-3 border-t border-slate-100 pt-4">
+                  <FieldLabel>棚卸差異を調整</FieldLabel>
+                  <div className="grid gap-3 sm:grid-cols-[112px_1fr]">
+                    <div className="space-y-2">
+                      <FieldLabel>差分</FieldLabel>
+                      <Input
+                        disabled={!isOnline}
+                        type="number"
+                        value={adjustDrafts[lot.id] ?? 0}
+                        onChange={(event) =>
+                          setAdjustDrafts((current) => ({
+                            ...current,
+                            [lot.id]: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel>理由</FieldLabel>
+                      <Input
+                        disabled={!isOnline}
+                        value={adjustReasons[lot.id] ?? ""}
+                        onChange={(event) =>
+                          setAdjustReasons((current) => ({
+                            ...current,
+                            [lot.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="差分調整理由"
+                      />
+                    </div>
+                  </div>
                   <Button
+                    className="w-full"
                     disabled={!isOnline || !adjustDrafts[lot.id]}
                     variant="secondary"
                     onClick={() => adjustLot(lot)}
@@ -449,30 +504,41 @@ export default function InventoryDetailPage() {
                     差分調整
                   </Button>
                 </div>
-                <div className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-[100px_1fr_auto]">
-                  <Input
-                    disabled={!isOnline}
-                    type="number"
-                    value={disposeDrafts[lot.id] ?? 0}
-                    onChange={(event) =>
-                      setDisposeDrafts((current) => ({
-                        ...current,
-                        [lot.id]: Number(event.target.value),
-                      }))
-                    }
-                  />
-                  <Input
-                    disabled={!isOnline}
-                    value={disposeReasons[lot.id] ?? ""}
-                    onChange={(event) =>
-                      setDisposeReasons((current) => ({
-                        ...current,
-                        [lot.id]: event.target.value,
-                      }))
-                    }
-                    placeholder="廃棄理由"
-                  />
-                  <Button disabled={!isOnline} onClick={() => disposeLot(lot)}>廃棄登録</Button>
+                <div className="space-y-3 border-t border-slate-100 pt-4">
+                  <FieldLabel>廃棄を登録</FieldLabel>
+                  <div className="grid gap-3 sm:grid-cols-[112px_1fr]">
+                    <div className="space-y-2">
+                      <FieldLabel>廃棄数</FieldLabel>
+                      <Input
+                        disabled={!isOnline}
+                        type="number"
+                        value={disposeDrafts[lot.id] ?? 0}
+                        onChange={(event) =>
+                          setDisposeDrafts((current) => ({
+                            ...current,
+                            [lot.id]: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel>理由</FieldLabel>
+                      <Input
+                        disabled={!isOnline}
+                        value={disposeReasons[lot.id] ?? ""}
+                        onChange={(event) =>
+                          setDisposeReasons((current) => ({
+                            ...current,
+                            [lot.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="廃棄理由"
+                      />
+                    </div>
+                  </div>
+                  <Button className="w-full" disabled={!isOnline} onClick={() => disposeLot(lot)}>
+                    廃棄登録
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -503,14 +569,14 @@ export default function InventoryDetailPage() {
         ) : (
           <div className="space-y-2">
             {history[historyTab].map((item) => (
-              <Card className="flex items-center justify-between gap-3 py-4" key={item.id}>
+              <Card className="space-y-2 py-4 sm:flex sm:items-center sm:justify-between sm:gap-3" key={item.id}>
                 <div>
                   <CardTitle className="text-sm">
                     {historyTabs.find((tab) => tab.key === historyTab)?.label}
                   </CardTitle>
                   <CardDescription>{formatDateTimeLabel(item.date)}</CardDescription>
                 </div>
-                <p className="text-sm text-slate-600">{item.detail}</p>
+                <p className="text-sm leading-6 text-slate-600 sm:text-right">{item.detail}</p>
               </Card>
             ))}
           </div>
