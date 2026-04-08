@@ -25,6 +25,10 @@ test("商品と初回ロットを登録し、在庫詳細まで確認できる",
     page.waitForResponse((response) => response.url().endsWith("/api/products") && response.request().method() === "POST"),
     page.getByRole("button", { name: "商品と初回ロットを追加" }).click(),
   ]);
+
+  await expect(page.locator('input[type="date"]').first()).toHaveValue(product.expiryDate);
+  await expect(page.getByPlaceholder("初回数量（期限入力時のみ）")).toHaveValue(product.quantity);
+
   const productCard = page.locator("div.space-y-3 > div").filter({ hasText: product.name }).first();
   await expect(productCard.getByRole("heading", { name: product.name })).toBeVisible();
   await expect(productCard.getByText(`JAN: ${product.janCode}`)).toBeVisible();

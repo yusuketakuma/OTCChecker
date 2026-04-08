@@ -199,8 +199,6 @@ function ProductsPageContent({
       setName("");
       setSpec("");
       setJanCode("");
-      setExpiryDate("");
-      setQuantity("1");
       setQuery("");
       setFilter("all");
       setMessage(
