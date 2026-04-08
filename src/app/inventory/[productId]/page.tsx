@@ -291,6 +291,7 @@ export default function InventoryDetailPage() {
   const [saleDate, setSaleDate] = useState(todayJstKey());
   const [saleQuantity, setSaleQuantity] = useState(1);
   const [historyTab, setHistoryTab] = useState<HistoryTab>("receipts");
+  const [pendingDeleteLotId, setPendingDeleteLotId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -311,6 +312,7 @@ export default function InventoryDetailPage() {
       setReceiptQuantity(1);
       setSaleDate(todayJstKey());
       setSaleQuantity(1);
+      setPendingDeleteLotId(null);
       setError("");
     } catch (cause) {
       setError((cause as Error).message);
@@ -504,15 +506,12 @@ export default function InventoryDetailPage() {
       return;
     }
 
-    if (!window.confirm("このロットを削除しますか。履歴がある場合は削除できません。")) {
-      return;
-    }
-
     try {
       setError("");
       setMessage("");
       await fetchJson(`/api/lots/${lot.id}`, { method: "DELETE" });
       setMessage("ロットを削除しました。");
+      setPendingDeleteLotId(null);
       await load();
     } catch (cause) {
       setError((cause as Error).message);
@@ -694,6 +693,7 @@ export default function InventoryDetailPage() {
               const deleteAction = getDeleteActionState(lot, isOnline);
               const disposeInputsDisabled =
                 !isOnline || lot.status !== "ACTIVE" || lot.quantity < 1;
+              const deleteConfirmOpen = pendingDeleteLotId === lot.id;
 
               return (
                 <Card className="space-y-4" key={lot.id}>
@@ -764,9 +764,11 @@ export default function InventoryDetailPage() {
                         className="w-full"
                         disabled={deleteAction.disabled}
                         variant="danger"
-                        onClick={() => deleteLot(lot)}
+                        onClick={() =>
+                          setPendingDeleteLotId((current) => (current === lot.id ? null : lot.id))
+                        }
                       >
-                        ロット削除
+                        {deleteConfirmOpen ? "削除確認を閉じる" : "ロット削除"}
                       </Button>
                     </div>
                     <p
@@ -776,6 +778,26 @@ export default function InventoryDetailPage() {
                     >
                       {deleteAction.helperText}
                     </p>
+                    {deleteConfirmOpen ? (
+                      <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-3">
+                        <FieldLabel>ロット削除の確認</FieldLabel>
+                        <p className="text-sm text-rose-900">
+                          このロットを削除します。履歴がある場合は削除できません。
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <Button className="w-full" variant="danger" onClick={() => deleteLot(lot)}>
+                            このロットを削除する
+                          </Button>
+                          <Button
+                            className="w-full"
+                            variant="secondary"
+                            onClick={() => setPendingDeleteLotId(null)}
+                          >
+                            キャンセル
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="space-y-3 border-t border-slate-100 pt-4">
                     <FieldLabel>棚卸差異を調整</FieldLabel>
