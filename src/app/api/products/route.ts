@@ -56,6 +56,10 @@ export async function POST(request: Request) {
       });
     }
 
+    if (!parsed.data.name || !parsed.data.spec) {
+      return fail(400, "INVALID_PRODUCT", "新規商品は商品名と規格が必須です");
+    }
+
     let created;
 
     try {

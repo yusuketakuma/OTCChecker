@@ -19,8 +19,8 @@ const janCodeSchema = z
   });
 
 export const productSchema = z.object({
-  name: trimmedTextSchema,
-  spec: trimmedTextSchema,
+  name: trimmedTextSchema.optional(),
+  spec: trimmedTextSchema.optional(),
   janCode: janCodeSchema,
   alertDays: alertDaysSchema.optional(),
   initialLot: z
