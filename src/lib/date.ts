@@ -116,6 +116,29 @@ export function getExpiryStatusMeta(date: Date | string) {
   };
 }
 
+export type ExtendedBucket = ExpiryBucket | "outOfStock";
+
+export function getBucketMeta(bucket: ExtendedBucket): {
+  tone: "danger" | "warning" | "info" | "success" | "neutral";
+  label: string;
+} {
+  switch (bucket) {
+    case "expired":
+      return { tone: "danger", label: "期限切れ" };
+    case "today":
+      return { tone: "warning", label: "本日" };
+    case "within7":
+      return { tone: "warning", label: "7日以内" };
+    case "within30":
+      return { tone: "info", label: "30日以内" };
+    case "outOfStock":
+      return { tone: "neutral", label: "在庫なし" };
+    case "safe":
+    default:
+      return { tone: "success", label: "正常" };
+  }
+}
+
 export function normalizeAlertDays(days: number[]) {
   return Array.from(
     new Set(days.filter((value) => Number.isInteger(value) && value >= 0)),

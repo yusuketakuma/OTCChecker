@@ -12,7 +12,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { fetchJson, postJson } from "@/lib/client";
-import { addDaysToDateKey, todayJstKey } from "@/lib/date";
+import { addDaysToDateKey, getBucketMeta, todayJstKey } from "@/lib/date";
 import {
   clearStoredReceiptDefaults,
   readStoredReceiptDefaults,
@@ -730,30 +730,8 @@ function ProductsPageContent({
                       <CardTitle>{item.name}</CardTitle>
                       <CardDescription>{item.spec}</CardDescription>
                     </div>
-                    <Badge
-                      tone={
-                        item.bucket === "expired"
-                          ? "danger"
-                          : item.bucket === "today" || item.bucket === "within7"
-                            ? "warning"
-                            : item.bucket === "within30"
-                              ? "info"
-                              : item.bucket === "outOfStock"
-                                ? "neutral"
-                                : "success"
-                      }
-                    >
-                      {item.bucket === "expired"
-                        ? "期限切れ"
-                        : item.bucket === "today"
-                          ? "本日"
-                          : item.bucket === "within7"
-                            ? "7日以内"
-                            : item.bucket === "within30"
-                              ? "30日以内"
-                              : item.bucket === "outOfStock"
-                                ? "在庫なし"
-                                : "正常"}
+                    <Badge tone={getBucketMeta(item.bucket).tone}>
+                      {getBucketMeta(item.bucket).label}
                     </Badge>
                   </div>
                   <div className="mt-3 flex items-center gap-3 text-sm text-slate-600">
