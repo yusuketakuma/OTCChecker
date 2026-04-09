@@ -256,7 +256,7 @@ export default function DashboardPage() {
                       <CardTitle>{lot.productName}</CardTitle>
                       <CardDescription>{lot.spec}</CardDescription>
                       <p className="text-sm text-slate-600">
-                        期限 {lot.expiryDate} ({expiryMeta.relativeLabel}) / 残 {lot.quantity}個
+                        期限 {lot.expiryDate} ({expiryMeta.relativeLabel}) / 残 {lot.quantity}個 / JAN {lot.janCode}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
