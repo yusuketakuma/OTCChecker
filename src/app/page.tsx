@@ -83,6 +83,12 @@ const quickActions = [
     description: "SKUを先に登録",
     className: "bg-white/92 text-[var(--color-text)] ring-1 ring-slate-200",
   },
+  {
+    href: "/import",
+    title: "CSV取込",
+    description: "売上を一括反映",
+    className: "bg-white/92 text-[var(--color-text)] ring-1 ring-slate-200",
+  },
 ] as const;
 
 export default function DashboardPage() {

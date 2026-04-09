@@ -437,6 +437,19 @@ export default function InventoryDetailPage() {
       setSaleDate(todayJstKey());
       setSaleQuantity("1");
       setPendingDeleteLotId(null);
+      // Auto-expand expired/today ACTIVE lots so urgent dispose is one tap away
+      setExpandedLotIds(
+        new Set(
+          detail.lots
+            .filter(
+              (lot) =>
+                lot.status === "ACTIVE" &&
+                lot.quantity > 0 &&
+                diffDaysFromToday(lot.expiryDate) <= 0,
+            )
+            .map((lot) => `lot-${lot.id}`),
+        ),
+      );
       setError("");
     } catch (cause) {
       setError((cause as Error).message);
@@ -1270,7 +1283,7 @@ export default function InventoryDetailPage() {
                       })
                     }
                   >
-                    {isExpanded ? "操作を閉じる" : "操作を開く（数量変更・調整・廃棄・削除）"}
+                    {isExpanded ? "操作を閉じる" : !isArchived && (isExpired || isToday) ? "⚠ 廃棄・調整の操作を開く" : "操作を開く（数量変更・調整・廃棄・削除）"}
                   </button>
                   {isExpanded ? (
                   <>
