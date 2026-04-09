@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -213,7 +222,38 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function ImportPage() {
+type UnmatchedReasonFilterKey = (typeof unmatchedReasonOptions)[number]["key"];
+
+function normalizeUnmatchedReasonFilter(value: string | null): UnmatchedReasonFilterKey {
+  return unmatchedReasonOptions.some((option) => option.key === value)
+    ? (value as UnmatchedReasonFilterKey)
+    : "all";
+}
+
+function buildImportSearchParams(query: string, reason: UnmatchedReasonFilterKey) {
+  const params = new URLSearchParams();
+
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+
+  if (reason !== "all") {
+    params.set("reason", reason);
+  }
+
+  return params;
+}
+
+function ImportPageContent({
+  initialQuery,
+  initialReasonFilter,
+}: {
+  initialQuery: string;
+  initialReasonFilter: UnmatchedReasonFilterKey;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isOnline = useOnlineStatus();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const unmatchedSectionRef = useRef<HTMLElement | null>(null);
@@ -229,8 +269,8 @@ export default function ImportPage() {
   const [executing, setExecuting] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [bulkResolvingAction, setBulkResolvingAction] = useState<"MARK_RESOLVED" | "RECEIVE_AND_APPLY" | null>(null);
-  const [unmatchedQuery, setUnmatchedQuery] = useState("");
-  const [unmatchedReasonFilter, setUnmatchedReasonFilter] = useState<(typeof unmatchedReasonOptions)[number]["key"]>("all");
+  const [unmatchedQuery, setUnmatchedQuery] = useState(initialQuery);
+  const [unmatchedReasonFilter, setUnmatchedReasonFilter] = useState<UnmatchedReasonFilterKey>(initialReasonFilter);
   const [bulkResolutionNote, setBulkResolutionNote] = useState("確認済み");
   const [bulkExpiryDate, setBulkExpiryDate] = useState("");
   const [bulkReceiptQuantity, setBulkReceiptQuantity] = useState("");
@@ -282,6 +322,7 @@ export default function ImportPage() {
     () => filteredUnmatched.filter((row) => rowValidations[row.id]?.canMarkResolved),
     [filteredUnmatched, rowValidations],
   );
+  const hasActiveFilters = Boolean(unmatchedQuery.trim()) || unmatchedReasonFilter !== "all";
   const bulkReceivableRows = useMemo(
     () =>
       filteredUnmatched.filter(
@@ -294,6 +335,25 @@ export default function ImportPage() {
     const parsedBulkQuantity = parsePositiveIntegerInput(bulkReceiptQuantity);
     writeStoredReceiptDefaults(bulkExpiryDate, parsedBulkQuantity ?? 1);
   }, [bulkExpiryDate, bulkReceiptQuantity]);
+
+  useEffect(() => {
+    const nextParams = buildImportSearchParams(unmatchedQuery, unmatchedReasonFilter);
+    const currentParams = buildImportSearchParams(
+      searchParams.get("q") ?? "",
+      normalizeUnmatchedReasonFilter(searchParams.get("reason")),
+    );
+
+    if (nextParams.toString() === currentParams.toString()) {
+      return;
+    }
+
+    const hash = typeof window === "undefined" ? "" : window.location.hash;
+    const nextUrl = nextParams.toString() ? `${pathname}?${nextParams.toString()}${hash}` : `${pathname}${hash}`;
+
+    startTransition(() => {
+      router.replace(nextUrl, { scroll: false });
+    });
+  }, [pathname, router, searchParams, unmatchedQuery, unmatchedReasonFilter]);
 
   function scrollToUnmatchedSection() {
     unmatchedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -760,6 +820,33 @@ export default function ImportPage() {
                 onChange={(event) => setUnmatchedQuery(event.target.value)}
                 placeholder="商品名・JAN・理由で検索"
               />
+              {hasActiveFilters ? (
+                <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                    <span className="font-medium text-[var(--color-text)]">適用中条件</span>
+                    {unmatchedQuery.trim() ? (
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium ring-1 ring-slate-200">
+                        検索: {unmatchedQuery.trim()}
+                      </span>
+                    ) : null}
+                    {unmatchedReasonFilter !== "all" ? (
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium ring-1 ring-slate-200">
+                        理由: {unmatchedReasonOptions.find((option) => option.key === unmatchedReasonFilter)?.label}
+                      </span>
+                    ) : null}
+                  </div>
+                  <Button
+                    disabled={!isOnline}
+                    variant="secondary"
+                    onClick={() => {
+                      setUnmatchedQuery("");
+                      setUnmatchedReasonFilter("all");
+                    }}
+                  >
+                    条件をリセット
+                  </Button>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {unmatchedReasonOptions.map((option) => (
                   <button
@@ -1164,5 +1251,27 @@ export default function ImportPage() {
         )}
       </section>
     </div>
+  );
+}
+
+function ImportPageShell() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+  const initialReasonFilter = normalizeUnmatchedReasonFilter(searchParams.get("reason"));
+
+  return (
+    <ImportPageContent
+      key={`${initialQuery}:${initialReasonFilter}`}
+      initialQuery={initialQuery}
+      initialReasonFilter={initialReasonFilter}
+    />
+  );
+}
+
+export default function ImportPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6" />}>
+      <ImportPageShell />
+    </Suspense>
   );
 }
