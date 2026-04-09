@@ -491,6 +491,19 @@ export default function InventoryDetailPage() {
     setMessage("入荷条件の保持をクリアしました。");
   }
 
+  function keepFocusOn(targetId: string) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextHash = `#${encodeURIComponent(targetId)}`;
+    handledHashRef.current = null;
+
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, "", nextHash);
+    }
+  }
+
   const scrollToCurrentHash = useCallback(() => {
     const hash = window.location.hash;
     const targetId = getHashTargetId(hash);
@@ -641,6 +654,7 @@ export default function InventoryDetailPage() {
         spec: editSpec,
         alertDays: alertDaysInput.values,
       });
+      keepFocusOn("manual-receipt");
       setEditAlertDays(alertDaysInput.normalizedText);
       setMessage("商品マスタを更新しました。");
       await load();
@@ -679,6 +693,7 @@ export default function InventoryDetailPage() {
         reason: (reasonDrafts[lot.id] ?? "").trim(),
         version: lot.version,
       });
+      keepFocusOn(`lot-${lot.id}`);
       setMessage("在庫数量を更新しました。");
       await load();
     } catch (cause) {
@@ -716,6 +731,7 @@ export default function InventoryDetailPage() {
         reason: (disposeReasons[lot.id] ?? "").trim(),
         version: lot.version,
       });
+      keepFocusOn(`lot-${lot.id}`);
       setMessage("廃棄を登録しました。");
       await load();
     } catch (cause) {
@@ -753,6 +769,7 @@ export default function InventoryDetailPage() {
         reason: (adjustReasons[lot.id] ?? "").trim(),
         version: lot.version,
       });
+      keepFocusOn(`lot-${lot.id}`);
       setMessage("差分調整を登録しました。");
       await load();
     } catch (cause) {
@@ -780,6 +797,7 @@ export default function InventoryDetailPage() {
       setError("");
       setMessage("");
       await fetchJson(`/api/lots/${lot.id}`, { method: "DELETE" });
+      keepFocusOn("manual-receipt");
       setMessage("ロットを削除しました。");
       setPendingDeleteLotId(null);
       await load();
@@ -814,6 +832,7 @@ export default function InventoryDetailPage() {
         expiryDate: receiptExpiryDate,
         quantity: parsedReceiptQuantity,
       });
+      keepFocusOn("manual-receipt");
       setMessage("入荷を登録しました。");
       await load();
     } catch (cause) {
@@ -849,6 +868,7 @@ export default function InventoryDetailPage() {
         quantity: parsedSaleQuantity,
         transactionDate: saleDate || undefined,
       });
+      keepFocusOn("manual-sale");
       setMessage("手動売上を登録しました。");
       await load();
     } catch (cause) {
