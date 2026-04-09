@@ -260,17 +260,13 @@ function InventoryPageContent({
                     ) : null}
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
-                  <p>JAN: {item.janCode}</p>
-                  <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
-                  <p>有効ロット: {item.activeLotCount}件</p>
-                  <p className="col-span-2">
-                    最短期限: {item.earliestExpiry ?? "-"}
-                    {expiryMeta ? ` (${expiryMeta.relativeLabel})` : ""}
-                  </p>
+                <div className="mt-3 flex items-center gap-3 text-sm text-slate-600">
+                  <span className="font-semibold text-[var(--color-text)]">{formatQuantity(item.totalQuantity)}個</span>
+                  <span className="text-slate-400">|</span>
+                  <span>期限 {item.earliestExpiry ?? "-"}{expiryMeta ? ` (${expiryMeta.relativeLabel})` : ""}</span>
                 </div>
               </Link>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <Link
                   aria-label={`${item.name}のスキャン入荷を開く`}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
@@ -282,14 +278,7 @@ function InventoryPageContent({
                 >
                   スキャン入荷
                 </Link>
-                <Link
-                  aria-label={`${item.name}の手動入荷を開く`}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
-                  href={`/inventory/${item.productId}#manual-receipt`}
-                >
-                  手動入荷
-                </Link>
-                {item.bucket === "expired" || item.bucket === "today" ? (
+                {(item.bucket === "expired" || item.bucket === "today") ? (
                   <Link
                     aria-label={`${item.name}の廃棄登録を開く`}
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 transition active:scale-[0.99]"
@@ -299,11 +288,11 @@ function InventoryPageContent({
                   </Link>
                 ) : (
                   <Link
-                    aria-label={`${item.name}の売上登録を開く`}
+                    aria-label={`${item.name}の在庫詳細を開く`}
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
-                    href={`/inventory/${item.productId}#manual-sale`}
+                    href={`/inventory/${item.productId}`}
                   >
-                    売上登録
+                    詳細・売上
                   </Link>
                 )}
               </div>
