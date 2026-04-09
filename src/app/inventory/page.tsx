@@ -76,34 +76,41 @@ function InventoryPageContent({
   const activeQuery = query.trim();
   const hasActiveFilters = Boolean(activeQuery) || bucket !== "all";
 
-  async function loadInventory(search: string, nextBucket: InventoryTabKey) {
-    const controller = new AbortController();
+  async function loadInventory(search: string, nextBucket: InventoryTabKey, signal: AbortSignal) {
     setLoading(true);
 
     try {
       const data = await fetchJson<InventoryRow[]>(
         `/api/products?q=${encodeURIComponent(search)}&bucket=${nextBucket}`,
-        { signal: controller.signal },
+        { signal },
       );
       setItems(data);
       setError("");
     } catch (cause) {
-      if (!controller.signal.aborted) {
+      if (!signal.aborted) {
         setError((cause as Error).message);
       }
     } finally {
-      if (!controller.signal.aborted) {
+      if (!signal.aborted) {
         setLoading(false);
       }
     }
   }
 
   useEffect(() => {
-    void loadInventory(deferredQuery, bucket);
+    const controller = new AbortController();
+    void loadInventory(deferredQuery, bucket, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [bucket, deferredQuery]);
 
   useRefreshOnForeground(() => {
-    void loadInventory(activeQuery, bucket);
+    const controller = new AbortController();
+    void loadInventory(activeQuery, bucket, controller.signal);
+
+    return () => controller.abort();
   });
 
   useEffect(() => {
