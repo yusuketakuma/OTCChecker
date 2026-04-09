@@ -41,6 +41,12 @@ type LookupState =
   | { status: "missing"; janCode: string }
   | { status: "error"; janCode: string; message: string };
 
+type RecentScanEntry = {
+  janCode: string;
+  name?: string;
+  spec?: string;
+};
+
 const recentScanStorageKey = "otc-checker:recent-scans";
 const expiryPresets = [
   { label: "今日", days: 0 },
@@ -50,6 +56,34 @@ const expiryPresets = [
 ] as const;
 
 const quantityPresets = [1, 3, 5, 10] as const;
+
+function normalizeRecentScanEntry(value: unknown): RecentScanEntry | null {
+  if (typeof value === "string") {
+    const janCode = normalizeJanCode(value);
+
+    return janCode ? { janCode } : null;
+  }
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const janCode = normalizeJanCode(typeof candidate.janCode === "string" ? candidate.janCode : "");
+
+  if (!janCode) {
+    return null;
+  }
+
+  const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+  const spec = typeof candidate.spec === "string" ? candidate.spec.trim() : "";
+
+  return {
+    janCode,
+    ...(name ? { name } : {}),
+    ...(spec ? { spec } : {}),
+  };
+}
 
 function ScanPageContent() {
   const searchParams = useSearchParams();
@@ -70,7 +104,7 @@ function ScanPageContent() {
     name: string;
     spec: string;
   } | null>(null);
-  const [recentScans, setRecentScans] = useState<string[]>(() => {
+  const [recentScans, setRecentScans] = useState<RecentScanEntry[]>(() => {
     if (typeof window === "undefined") {
       return [];
     }
@@ -82,7 +116,17 @@ function ScanPageContent() {
     }
 
     try {
-      return JSON.parse(saved) as string[];
+      const parsed = JSON.parse(saved) as unknown;
+
+      if (!Array.isArray(parsed)) {
+        window.localStorage.removeItem(recentScanStorageKey);
+        return [];
+      }
+
+      return parsed
+        .map((item) => normalizeRecentScanEntry(item))
+        .filter((item): item is RecentScanEntry => item !== null)
+        .slice(0, 5);
     } catch {
       window.localStorage.removeItem(recentScanStorageKey);
       return [];
@@ -166,9 +210,20 @@ function ScanPageContent() {
     setSubmitError("");
   }
 
-  function pushRecentScan(value: string) {
+  function pushRecentScan(entry: RecentScanEntry) {
+    const normalizedEntry = normalizeRecentScanEntry(entry);
+
+    if (!normalizedEntry) {
+      return;
+    }
+
     setRecentScans((current) => {
-      const next = [value, ...current.filter((item) => item !== value)].slice(0, 5);
+      const currentEntry = current.find((item) => item.janCode === normalizedEntry.janCode);
+      const nextEntry = {
+        ...currentEntry,
+        ...normalizedEntry,
+      };
+      const next = [nextEntry, ...current.filter((item) => item.janCode !== nextEntry.janCode)].slice(0, 5);
       window.localStorage.setItem(recentScanStorageKey, JSON.stringify(next));
       return next;
     });
@@ -188,9 +243,9 @@ function ScanPageContent() {
     }
   }
 
-  function removeRecentScan(value: string) {
+  function removeRecentScan(janCode: string) {
     setRecentScans((current) => {
-      const next = current.filter((item) => item !== value);
+      const next = current.filter((item) => item.janCode !== janCode);
 
       if (typeof window !== "undefined") {
         if (next.length > 0) {
@@ -298,6 +353,11 @@ function ScanPageContent() {
           });
           setName(result.name);
           setSpec(result.spec);
+          pushRecentScan({
+            janCode: code,
+            name: result.name,
+            spec: result.spec,
+          });
         } else {
           setLookupState({ status: "missing", janCode: code });
         }
@@ -425,7 +485,11 @@ function ScanPageContent() {
         name: product?.name ?? name,
         spec: product?.spec ?? spec,
       });
-      pushRecentScan(code);
+      pushRecentScan({
+        janCode: code,
+        name: product?.name ?? name,
+        spec: product?.spec ?? spec,
+      });
       setMessage(product ? "既存SKUへ入荷登録しました。" : "新規SKUを作成して入荷登録しました。");
       setJanCode("");
       setLookupState({ status: "idle", janCode: "" });
@@ -492,7 +556,7 @@ function ScanPageContent() {
           onDetected={(value) => {
             const normalized = normalizeJanCode(value);
             handleJanChange(normalized);
-            pushRecentScan(normalized);
+            pushRecentScan({ janCode: normalized });
           }}
         />
       </Card>
@@ -665,22 +729,27 @@ function ScanPageContent() {
           <div className="flex flex-wrap gap-2">
             {recentScans.map((item) => (
               <div
-                className="inline-flex items-center overflow-hidden rounded-full bg-slate-100 text-sm font-medium text-slate-700"
-                key={item}
+                className="inline-flex items-center overflow-hidden rounded-2xl bg-slate-100 text-sm font-medium text-slate-700"
+                key={item.janCode}
               >
                 <button
-                  className="px-4 py-2"
+                  className="px-4 py-2 text-left"
                   disabled={isSubmitting}
-                  onClick={() => handleJanChange(item)}
+                  onClick={() => handleJanChange(item.janCode)}
                   type="button"
                 >
-                  {item}
+                  <span className="block text-sm font-semibold text-slate-800">
+                    {item.name || item.janCode}
+                  </span>
+                  <span className="block text-xs font-normal text-slate-500">
+                    {item.name ? `${item.spec ? `${item.spec} / ` : ""}JAN ${item.janCode}` : "JANコードを再入力"}
+                  </span>
                 </button>
                 <button
-                  aria-label={`${item} を履歴から削除`}
+                  aria-label={`${item.janCode} を履歴から削除`}
                   className="border-l border-slate-200 px-3 py-2 text-slate-500 transition active:scale-[0.99]"
                   disabled={isSubmitting}
-                  onClick={() => removeRecentScan(item)}
+                  onClick={() => removeRecentScan(item.janCode)}
                   type="button"
                 >
                   ×
