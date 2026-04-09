@@ -195,6 +195,9 @@ function ScanPageContent() {
     !lookupError &&
     (Boolean(product) || (requiresManualDetails && Boolean(name.trim()) && Boolean(spec.trim())));
   const selectedExpiryMeta = expiryDate ? getExpiryStatusMeta(expiryDate) : null;
+  const inventoryExpiryMeta = product?.inventorySummary.earliestExpiry
+    ? getExpiryStatusMeta(product.inventorySummary.earliestExpiry)
+    : null;
 
   function resetLookupForJan(value: string) {
     const nextNormalized = normalizeJanCode(value);
@@ -735,15 +738,7 @@ function ScanPageContent() {
                 </p>
               </div>
               <Badge
-                tone={
-                  product.inventorySummary.bucket === "expired"
-                    ? "danger"
-                    : product.inventorySummary.bucket === "today" || product.inventorySummary.bucket === "within7"
-                      ? "warning"
-                      : product.inventorySummary.bucket === "within30"
-                        ? "info"
-                        : "success"
-                }
+                tone={inventoryExpiryMeta?.tone ?? "success"}
               >
                 {product.inventorySummary.bucket === "expired"
                   ? "期限切れあり"
@@ -759,7 +754,32 @@ function ScanPageContent() {
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-emerald-900/90">
               <p>現在庫: {product.inventorySummary.totalQuantity}個</p>
               <p>有効ロット: {product.inventorySummary.activeLotCount}件</p>
-              <p className="col-span-2">最短期限: {product.inventorySummary.earliestExpiry ?? "登録なし"}</p>
+              <p className="col-span-2">
+                最短期限: {product.inventorySummary.earliestExpiry ?? "登録なし"}
+                {inventoryExpiryMeta ? ` (${inventoryExpiryMeta.relativeLabel})` : ""}
+              </p>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <Link
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
+                href={`/inventory/${product.id}`}
+              >
+                在庫詳細
+              </Link>
+              <Link
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99]"
+                href={`/inventory/${product.id}#manual-receipt`}
+              >
+                手動入荷
+              </Link>
+              {product.inventorySummary.earliestLotId ? (
+                <Link
+                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99]"
+                  href={`/inventory/${product.id}#lot-${product.inventorySummary.earliestLotId}`}
+                >
+                  最短ロット
+                </Link>
+              ) : null}
             </div>
           </div>
         ) : null}
