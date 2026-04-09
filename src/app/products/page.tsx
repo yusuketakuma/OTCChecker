@@ -459,8 +459,10 @@ function ProductsPageContent({
             <FormLabel htmlFor="products-search">商品を検索</FormLabel>
             <Input
               aria-label="商品を検索"
+              enterKeyHint="search"
               id="products-search"
               placeholder="商品名・規格・JANコード"
+              type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
