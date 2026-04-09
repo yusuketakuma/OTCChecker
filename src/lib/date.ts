@@ -46,6 +46,18 @@ export function diffDaysFromToday(date: Date | string, today = todayJstKey()) {
 
 export type ExpiryBucket = "expired" | "today" | "within7" | "within30" | "safe";
 
+export function formatExpiryRelativeLabel(diffDays: number) {
+  if (diffDays < 0) {
+    return `${Math.abs(diffDays)}日超過`;
+  }
+
+  if (diffDays === 0) {
+    return "今日まで";
+  }
+
+  return `あと${diffDays}日`;
+}
+
 export function getExpiryBucket(diffDays: number): ExpiryBucket {
   if (diffDays < 0) {
     return "expired";
@@ -64,6 +76,35 @@ export function getExpiryBucket(diffDays: number): ExpiryBucket {
   }
 
   return "safe";
+}
+
+export function getExpiryStatusMeta(date: Date | string) {
+  const diffDays = diffDaysFromToday(date);
+  const bucket = getExpiryBucket(diffDays);
+
+  return {
+    diffDays,
+    bucket,
+    relativeLabel: formatExpiryRelativeLabel(diffDays),
+    tone:
+      bucket === "expired"
+        ? ("danger" as const)
+        : bucket === "today" || bucket === "within7"
+          ? ("warning" as const)
+          : bucket === "within30"
+            ? ("info" as const)
+            : ("success" as const),
+    shortLabel:
+      bucket === "expired"
+        ? "期限切れ"
+        : bucket === "today"
+          ? "本日"
+          : bucket === "within7"
+            ? "7日以内"
+            : bucket === "within30"
+              ? "30日以内"
+              : "正常",
+  };
 }
 
 export function normalizeAlertDays(days: number[]) {

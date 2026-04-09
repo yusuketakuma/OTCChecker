@@ -12,6 +12,7 @@ import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson } from "@/lib/client";
+import { getExpiryStatusMeta } from "@/lib/date";
 import { formatQuantity } from "@/lib/utils";
 
 type InventoryRow = {
@@ -214,8 +215,13 @@ function InventoryPageContent({
         <EmptyState title="該当する在庫がありません" description="検索条件を変えるか、スキャン画面から入荷登録してください。" />
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
-            <Card className="space-y-3" key={item.productId}>
+          {items.map((item) => {
+            const expiryMeta = item.earliestExpiry
+              ? getExpiryStatusMeta(item.earliestExpiry)
+              : null;
+
+            return (
+              <Card className="space-y-3" key={item.productId}>
               <Link
                 className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
                 href={`/inventory/${item.productId}`}
@@ -225,33 +231,23 @@ function InventoryPageContent({
                     <CardTitle>{item.name}</CardTitle>
                     <CardDescription>{item.spec}</CardDescription>
                   </div>
-                  <Badge
-                    tone={
-                      item.bucket === "expired"
-                        ? "danger"
-                        : item.bucket === "within30"
-                          ? "info"
-                          : item.bucket === "today" || item.bucket === "within7"
-                            ? "warning"
-                            : "success"
-                    }
-                  >
-                    {item.bucket === "expired"
-                      ? "期限切れ"
-                      : item.bucket === "today"
-                        ? "本日"
-                        : item.bucket === "within7"
-                          ? "7日以内"
-                          : item.bucket === "within30"
-                            ? "30日以内"
-                            : "正常"}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge tone={expiryMeta?.tone ?? "success"}>
+                      {expiryMeta?.shortLabel ?? "正常"}
+                    </Badge>
+                    {expiryMeta ? (
+                      <span className="text-xs font-medium text-slate-500">{expiryMeta.relativeLabel}</span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
                   <p>JAN: {item.janCode}</p>
                   <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
                   <p>有効ロット: {item.activeLotCount}件</p>
-                  <p className="col-span-2">最短期限: {item.earliestExpiry ?? "-"}</p>
+                  <p className="col-span-2">
+                    最短期限: {item.earliestExpiry ?? "-"}
+                    {expiryMeta ? ` (${expiryMeta.relativeLabel})` : ""}
+                  </p>
                 </div>
               </Link>
               <div className="grid gap-2 sm:grid-cols-3">
@@ -287,8 +283,9 @@ function InventoryPageContent({
                   </Link>
                 )}
               </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

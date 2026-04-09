@@ -17,6 +17,7 @@ import {
   diffDaysFromToday,
   formatDateLabel,
   formatDateTimeLabel,
+  getExpiryStatusMeta,
   todayJstKey,
 } from "@/lib/date";
 import {
@@ -1206,6 +1207,7 @@ export default function InventoryDetailPage() {
               const disposeInputsDisabled =
                 !isOnline || lot.status !== "ACTIVE" || lot.quantity < 1 || lotBusy;
               const deleteConfirmOpen = pendingDeleteLotId === lot.id;
+              const expiryMeta = getExpiryStatusMeta(lot.expiryDate);
 
               return (
                 <Card className="space-y-4 scroll-mt-24" id={`lot-${lot.id}`} key={lot.id}>
@@ -1213,11 +1215,14 @@ export default function InventoryDetailPage() {
                     <div>
                       <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>
                       <CardDescription>
-                        初回 {lot.initialQuantity}個 / 現在 {lot.quantity}個
+                        {expiryMeta.relativeLabel} / 初回 {lot.initialQuantity}個 / 現在 {lot.quantity}個
                       </CardDescription>
                     </div>
                     <div className="space-y-2 text-right">
-                      <Badge tone={status.tone}>{status.label}</Badge>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Badge tone={expiryMeta.tone}>{expiryMeta.shortLabel}</Badge>
+                        <Badge tone={status.tone}>{status.label}</Badge>
+                      </div>
                       <p className="text-xs leading-5 text-slate-500">{status.description}</p>
                     </div>
                   </div>

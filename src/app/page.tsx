@@ -11,6 +11,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { usePwaInstallState } from "@/hooks/use-pwa-install-state";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson } from "@/lib/client";
+import { getExpiryStatusMeta } from "@/lib/date";
 
 type DashboardSummary = {
   expiredCount: number;
@@ -185,8 +186,11 @@ export default function DashboardPage() {
           <EmptyState title="アラート対象はありません" description="安全圏の在庫のみです。" />
         ) : (
           <div className="space-y-3">
-            {data.alertLots.map((lot) => (
-              <Card className="space-y-3 bg-white/92" key={lot.lotId}>
+            {data.alertLots.map((lot) => {
+              const expiryMeta = getExpiryStatusMeta(lot.expiryDate);
+
+              return (
+                <Card className="space-y-3 bg-white/92" key={lot.lotId}>
                 <Link
                   href={`/inventory/${lot.productId}`}
                   className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
@@ -196,27 +200,14 @@ export default function DashboardPage() {
                       <CardTitle>{lot.productName}</CardTitle>
                       <CardDescription>{lot.spec}</CardDescription>
                       <p className="text-sm text-slate-600">
-                        期限 {lot.expiryDate} / 残 {lot.quantity}個
+                        期限 {lot.expiryDate} ({expiryMeta.relativeLabel}) / 残 {lot.quantity}個
                       </p>
                       <p className="text-xs text-slate-500">JAN {lot.janCode}</p>
                     </div>
-                    <Badge
-                      tone={
-                        lot.bucket === "expired"
-                          ? "danger"
-                          : lot.bucket === "within30"
-                            ? "info"
-                            : "warning"
-                      }
-                    >
-                      {lot.bucket === "expired"
-                        ? "期限切れ"
-                        : lot.bucket === "today"
-                          ? "本日"
-                          : lot.bucket === "within30"
-                            ? "30日以内"
-                            : "7日以内"}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge tone={expiryMeta.tone}>{expiryMeta.shortLabel}</Badge>
+                      <span className="text-xs font-medium text-slate-500">{expiryMeta.relativeLabel}</span>
+                    </div>
                   </div>
                 </Link>
                 <div className="grid gap-2 sm:grid-cols-3">
@@ -248,8 +239,9 @@ export default function DashboardPage() {
                     在庫詳細
                   </Link>
                 </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </section>

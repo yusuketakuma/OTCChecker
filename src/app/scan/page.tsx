@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { fetchJson, postJson } from "@/lib/client";
 import { normalizeJanCode } from "@/lib/csv";
-import { addDaysToDateKey, todayJstKey } from "@/lib/date";
+import { addDaysToDateKey, getExpiryStatusMeta, todayJstKey } from "@/lib/date";
 import {
   coercePositiveIntegerInput,
   janInputProps,
@@ -187,6 +187,7 @@ function ScanPageContent() {
     !isLookupPending &&
     !lookupError &&
     (Boolean(product) || (requiresManualDetails && Boolean(name.trim()) && Boolean(spec.trim())));
+  const selectedExpiryMeta = expiryDate ? getExpiryStatusMeta(expiryDate) : null;
 
   function resetLookupForJan(value: string) {
     const nextNormalized = normalizeJanCode(value);
@@ -739,6 +740,16 @@ function ScanPageContent() {
               <p>現在庫: {product.inventorySummary.totalQuantity}個</p>
               <p>有効ロット: {product.inventorySummary.activeLotCount}件</p>
               <p className="col-span-2">最短期限: {product.inventorySummary.earliestExpiry ?? "登録なし"}</p>
+            </div>
+          </div>
+        ) : null}
+        {selectedExpiryMeta ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3 text-sm text-slate-700">
+            <div className="flex items-center justify-between gap-3">
+              <p>
+                今回の期限: {expiryDate} ({selectedExpiryMeta.relativeLabel})
+              </p>
+              <Badge tone={selectedExpiryMeta.tone}>{selectedExpiryMeta.shortLabel}</Badge>
             </div>
           </div>
         ) : null}
