@@ -249,6 +249,13 @@ function ProductsPageContent({
   }
 
   async function createProduct() {
+    if (existingProduct && !expiryDate) {
+      setError("");
+      setMessage("既存商品を開きます。");
+      router.push(`/inventory/${existingProduct.id}`);
+      return;
+    }
+
     if (expiryDate && initialLotQuantity === null) {
       setError("初回数量は1以上の整数で入力してください。");
       setMessage("");
@@ -293,8 +300,14 @@ function ProductsPageContent({
             ? "既存商品へ初回在庫を追加しました。"
             : result.action === "existing"
               ? "同じJANの商品があるため、既存商品を表示しました。"
-            : "商品マスタを登録しました。",
+              : "商品マスタを登録しました。",
       );
+
+      if (result.action === "existing") {
+        router.push(`/inventory/${result.id}`);
+        return;
+      }
+
       await loadProducts("", "all");
     } catch (cause) {
       setError((cause as Error).message);
@@ -548,11 +561,11 @@ function ProductsPageContent({
           disabled={
             !isOnline ||
             creating ||
-            !name.trim() ||
-            !spec.trim() ||
             !janCode.trim() ||
             !janCodeValid ||
-            (Boolean(expiryDate) && initialLotQuantity === null)
+            (existingProduct
+              ? Boolean(expiryDate) && initialLotQuantity === null
+              : !name.trim() || !spec.trim() || (Boolean(expiryDate) && initialLotQuantity === null))
           }
           onClick={createProduct}
         >
