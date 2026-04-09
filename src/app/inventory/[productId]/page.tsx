@@ -381,6 +381,7 @@ export default function InventoryDetailPage() {
     lotId: string;
     action: LotActionKind;
   } | null>(null);
+  const [expandedLotIds, setExpandedLotIds] = useState<Set<string>>(new Set());
   const parsedReceiptQuantity = parsePositiveIntegerInput(receiptQuantity);
   const alertDaysInput = parseAlertDaysInput(editAlertDays);
   const parsedSaleQuantity = parsePositiveIntegerInput(saleQuantity);
@@ -510,6 +511,15 @@ export default function InventoryDetailPage() {
 
     target.scrollIntoView({ block: "start" });
     handledHashRef.current = hash;
+
+    if (targetId.startsWith("lot-")) {
+      setExpandedLotIds((current) => {
+        const next = new Set(current);
+        next.add(targetId);
+        return next;
+      });
+    }
+
     return true;
   }, []);
 
@@ -1216,9 +1226,11 @@ export default function InventoryDetailPage() {
                 !isOnline || lot.status !== "ACTIVE" || lot.quantity < 1 || lotBusy;
               const deleteConfirmOpen = pendingDeleteLotId === lot.id;
               const expiryMeta = getExpiryStatusMeta(lot.expiryDate);
+              const lotDomId = `lot-${lot.id}`;
+              const isExpanded = expandedLotIds.has(lotDomId);
 
               return (
-                <Card className="space-y-4 scroll-mt-24" id={`lot-${lot.id}`} key={lot.id}>
+                <Card className="space-y-4 scroll-mt-24" id={lotDomId} key={lot.id}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>
@@ -1234,7 +1246,26 @@ export default function InventoryDetailPage() {
                       <p className="text-xs leading-5 text-slate-500">{status.description}</p>
                     </div>
                   </div>
-                  <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
+                  <button
+                    type="button"
+                    className="w-full rounded-full bg-slate-100 py-2.5 text-sm font-medium text-slate-700 transition active:scale-[0.99]"
+                    onClick={() =>
+                      setExpandedLotIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(lotDomId)) {
+                          next.delete(lotDomId);
+                        } else {
+                          next.add(lotDomId);
+                        }
+                        return next;
+                      })
+                    }
+                  >
+                    {isExpanded ? "操作を閉じる" : "操作を開く（数量変更・調整・廃棄・削除）"}
+                  </button>
+                  {isExpanded ? (
+                  <>
+                    <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
                     <FieldLabel>数量を上書き</FieldLabel>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-2">
@@ -1459,6 +1490,8 @@ export default function InventoryDetailPage() {
                       {activeLotAction === "dispose" ? "登録中..." : "廃棄登録"}
                     </Button>
                   </div>
+                  </>
+                  ) : null}
                 </Card>
               );
             })}
