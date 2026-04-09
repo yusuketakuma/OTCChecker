@@ -911,6 +911,15 @@ function ScanPageContent() {
         <Button className="w-full" disabled={!canSubmit} onClick={submit}>
           {isSubmitting ? "登録中..." : isLookupPending ? "JAN照会中..." : "登録する"}
         </Button>
+        {!canSubmit && janCode.trim() && !isSubmitting ? (
+          <p className="text-sm text-slate-500">
+            {!expiryDate ? "期限日を入力"
+              : parsedQuantity === null ? "数量を1以上で入力"
+              : requiresManualDetails && !name.trim() ? "商品名を入力"
+              : requiresManualDetails && !spec.trim() ? "規格を入力"
+              : "入力内容を確認中..."}
+          </p>
+        ) : null}
         {lastSubmittedDraft && !lastSavedProduct && !janCode ? (
           <Button className="w-full" variant="secondary" disabled={isSubmitting} onClick={restoreLastSubmittedDraft}>
             同じ商品でもう一件
