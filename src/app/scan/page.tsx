@@ -604,6 +604,9 @@ function ScanPageContent() {
       setLookupState({ status: "idle", janCode: "" });
       setName("");
       setSpec("");
+      window.requestAnimationFrame(() => {
+        janInputRef.current?.focus();
+      });
     } catch (cause) {
       setSubmitError((cause as Error).message);
     } finally {
