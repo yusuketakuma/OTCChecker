@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, startTransition, useDeferredValue, useEffect, useState } from "react";
+import { Suspense, startTransition, useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/app/empty-state";
@@ -128,6 +128,7 @@ function ProductsPageContent({
   const [lastSubmittedDraft, setLastSubmittedDraft] = useState<LastSubmittedProductDraft | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const handledHashRef = useRef<string | null>(null);
   const deferredQuery = useDeferredValue(query);
   const deferredJanCode = useDeferredValue(janCode);
   const initialLotQuantity = parsePositiveIntegerInput(quantity);
@@ -139,6 +140,43 @@ function ProductsPageContent({
     );
     setItems(data);
   }
+
+  function keepFocusOn(targetId: string) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextHash = `#${encodeURIComponent(targetId)}`;
+    handledHashRef.current = null;
+
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, "", nextHash);
+    }
+  }
+
+  const scrollToCurrentHash = useCallback(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    const hash = window.location.hash;
+
+    if (!hash || hash.length < 2) {
+      handledHashRef.current = null;
+      return false;
+    }
+
+    const targetId = decodeURIComponent(hash.slice(1));
+    const target = document.getElementById(targetId);
+
+    if (!target) {
+      return false;
+    }
+
+    target.scrollIntoView({ block: "start" });
+    handledHashRef.current = hash;
+    return true;
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -217,6 +255,57 @@ function ProductsPageContent({
 
     return () => controller.abort();
   }, [deferredJanCode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const hash = window.location.hash;
+
+    if (!hash || handledHashRef.current === hash) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollToCurrentHash();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [items, scrollToCurrentHash]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+
+    const handleHashChange = () => {
+      handledHashRef.current = null;
+
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        scrollToCurrentHash();
+      });
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [scrollToCurrentHash]);
 
   function resetInitialLotDraft(options?: { clearStored?: boolean; message?: string }) {
     setExpiryDate("");
@@ -313,6 +402,7 @@ function ProductsPageContent({
         return;
       }
 
+      keepFocusOn(`product-${result.id}`);
       await loadProducts("", "all");
     } catch (cause) {
       setError((cause as Error).message);
@@ -334,6 +424,7 @@ function ProductsPageContent({
       await fetchJson(`/api/products/${item.productId}`, {
         method: "DELETE",
       });
+      keepFocusOn("products-search");
       setMessage("商品マスタを削除しました。");
       setPendingDeleteProductId(null);
       await loadProducts(query.trim(), filter);
@@ -616,7 +707,7 @@ function ProductsPageContent({
             const deleteConfirmOpen = pendingDeleteProductId === item.productId;
 
             return (
-              <Card className="space-y-3" key={item.productId}>
+              <Card className="space-y-3 scroll-mt-24" id={`product-${item.productId}`} key={item.productId}>
                 <Link
                   className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
                   href={`/inventory/${item.productId}`}
