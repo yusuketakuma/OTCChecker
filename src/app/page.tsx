@@ -244,7 +244,6 @@ export default function DashboardPage() {
                       <p className="text-sm text-slate-600">
                         期限 {lot.expiryDate} ({expiryMeta.relativeLabel}) / 残 {lot.quantity}個
                       </p>
-                      <p className="text-xs text-slate-500">JAN {lot.janCode}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <Badge tone={expiryMeta.tone}>{expiryMeta.shortLabel}</Badge>
@@ -252,7 +251,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </Link>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {lot.bucket === "expired" || lot.bucket === "today" ? (
                     <Link
                       href={`/inventory/${lot.productId}#lot-${lot.lotId}`}
@@ -272,12 +271,6 @@ export default function DashboardPage() {
                       スキャン入荷
                     </Link>
                   )}
-                  <Link
-                    href={`/inventory/${lot.productId}#manual-sale`}
-                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
-                  >
-                    売上登録
-                  </Link>
                   <Link
                     href={`/inventory/${lot.productId}`}
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
