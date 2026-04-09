@@ -71,39 +71,39 @@ function InventoryPageContent({
   const [query, setQuery] = useState(initialQuery);
   const [bucket, setBucket] = useState<InventoryTabKey>(initialBucket);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const deferredQuery = useDeferredValue(query);
   const activeQuery = query.trim();
   const hasActiveFilters = Boolean(activeQuery) || bucket !== "all";
 
-  useEffect(() => {
+  async function loadInventory(search: string, nextBucket: InventoryTabKey) {
     const controller = new AbortController();
+    setLoading(true);
 
-    fetchJson<InventoryRow[]>(
-      `/api/products?q=${encodeURIComponent(deferredQuery)}&bucket=${bucket}`,
-      { signal: controller.signal },
-    )
-      .then((data) => {
-        setItems(data);
-        setError("");
-      })
-      .catch((cause) => {
-        if (!controller.signal.aborted) {
-          setError(cause.message);
-        }
-      });
+    try {
+      const data = await fetchJson<InventoryRow[]>(
+        `/api/products?q=${encodeURIComponent(search)}&bucket=${nextBucket}`,
+        { signal: controller.signal },
+      );
+      setItems(data);
+      setError("");
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setError((cause as Error).message);
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }
 
-    return () => controller.abort();
+  useEffect(() => {
+    void loadInventory(deferredQuery, bucket);
   }, [bucket, deferredQuery]);
 
   useRefreshOnForeground(() => {
-    fetchJson<InventoryRow[]>(`/api/products?q=${encodeURIComponent(activeQuery)}&bucket=${bucket}`)
-      .then((data) => {
-        setItems(data);
-        setError("");
-      })
-      .catch((cause) => {
-        setError((cause as Error).message);
-      });
+    void loadInventory(activeQuery, bucket);
   });
 
   useEffect(() => {
@@ -211,7 +211,9 @@ function InventoryPageContent({
       </Card>
 
       {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
-      {!items.length ? (
+      {loading && !items.length ? (
+        <EmptyState title="在庫を読み込み中です" description="商品一覧を取得しています。少し待ってください。" />
+      ) : !items.length ? (
         <EmptyState title="該当する在庫がありません" description="検索条件を変えるか、スキャン画面から入荷登録してください。" />
       ) : (
         <div className="space-y-3">
