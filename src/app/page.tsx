@@ -5,8 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
+import { PwaInstallCard } from "@/components/app/pwa-install-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { usePwaInstallState } from "@/hooks/use-pwa-install-state";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson } from "@/lib/client";
 
@@ -83,6 +85,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const { showInstallPrompt, dismissInstallPrompt } = usePwaInstallState();
 
   const loadSummary = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {
@@ -117,6 +120,8 @@ export default function DashboardPage() {
         title="OTC-Checker"
         description="薬局のOTC商品の管理"
       />
+
+      {showInstallPrompt ? <PwaInstallCard onDismiss={dismissInstallPrompt} /> : null}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { usePwaInstallState } from "@/hooks/use-pwa-install-state";
 import { fetchJson, putJson } from "@/lib/client";
 import { parseAlertDaysInput } from "@/lib/utils";
 
@@ -31,7 +32,7 @@ export default function SettingsPage() {
   const [alertDays, setAlertDays] = useState("30,7,0");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [isInstalled, setIsInstalled] = useState(false);
+  const { isInstalled } = usePwaInstallState();
   const alertDaysInput = parseAlertDaysInput(alertDays);
   const savedAlertDaysText = settings?.defaultAlertDays.join(",") ?? "";
   const hasUnsavedChanges =
@@ -52,25 +53,6 @@ export default function SettingsPage() {
       .catch(() => {
         // Keep settings usable even if version metadata cannot be loaded.
       });
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(display-mode: standalone)");
-    const syncInstalled = () => {
-      const iosStandalone = Boolean(
-        (window.navigator as Navigator & { standalone?: boolean }).standalone,
-      );
-      setIsInstalled(mediaQuery.matches || iosStandalone);
-    };
-
-    syncInstalled();
-    mediaQuery.addEventListener("change", syncInstalled);
-
-    return () => mediaQuery.removeEventListener("change", syncInstalled);
   }, []);
 
   function toggleAlertDay(day: number) {
