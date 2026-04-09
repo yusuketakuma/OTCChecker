@@ -446,9 +446,12 @@ function ProductsPageContent({
       />
 
       <Card className="space-y-4">
-        <div className="space-y-1">
-          <CardTitle>商品検索</CardTitle>
-          <CardDescription>名前・規格・JANで商品マスタを絞り込みます。</CardDescription>
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle>商品検索</CardTitle>
+            <CardDescription>名前・規格・JANで商品マスタを絞り込みます。</CardDescription>
+          </div>
+          <Badge tone="neutral">{loadingItems ? "更新中..." : `${items.length}件`}</Badge>
         </div>
         <div className="space-y-3">
           <div className="space-y-2">
