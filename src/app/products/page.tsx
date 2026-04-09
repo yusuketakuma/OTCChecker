@@ -144,6 +144,8 @@ function ProductsPageContent({
       );
       setItems(data);
       setError("");
+    } catch (cause) {
+      setError((cause as Error).message);
     } finally {
       setLoadingItems(false);
     }
@@ -187,30 +189,7 @@ function ProductsPageContent({
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    setLoadingItems(true);
-
-    fetchJson<ProductMasterSummary[]>(
-      `/api/products?mode=master&q=${encodeURIComponent(deferredQuery)}&filter=${filter}`,
-      { signal: controller.signal },
-    )
-      .then((data) => {
-        setItems(data);
-        setError("");
-      })
-      .catch((cause) => {
-        if (!controller.signal.aborted) {
-          setError(cause.message);
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoadingItems(false);
-        }
-      });
-
-    return () => controller.abort();
+    void loadProducts(deferredQuery, filter);
   }, [deferredQuery, filter]);
 
   useRefreshOnForeground(() => {
