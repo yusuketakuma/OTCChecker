@@ -31,6 +31,11 @@ const unmatchedResolveErrorMap = {
     code: "INSUFFICIENT_STOCK",
     message: "入荷後も売上反映に必要な在庫が不足しています",
   },
+  RECEIPT_QUANTITY_INSUFFICIENT: {
+    status: 422,
+    code: "RECEIPT_QUANTITY_INSUFFICIENT",
+    message: "入荷数量は未割当の残数以上で入力してください",
+  },
 } as const;
 
 export function getUnmatchedResolveErrorInfo(error: unknown) {

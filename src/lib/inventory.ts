@@ -846,6 +846,10 @@ export async function resolveUnmatchedSale(params: {
       throw new Error("RECEIPT_INPUT_REQUIRED");
     }
 
+    if (params.receiptQuantity < unmatched.remainingQuantity) {
+      throw new Error("RECEIPT_QUANTITY_INSUFFICIENT");
+    }
+
     const janCode = normalizeJanCode(unmatched.janCode);
 
     if (!janCode) {

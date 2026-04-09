@@ -113,6 +113,7 @@ type RowValidation = {
   missingNote: boolean;
   missingExpiry: boolean;
   invalidQuantity: boolean;
+  insufficientQuantity: boolean;
   missingProductName: boolean;
   missingSpec: boolean;
 };
@@ -134,6 +135,7 @@ function validateUnmatchedRow(
   const missingNote = !trimmedNote;
   const missingExpiry = !trimmedExpiry;
   const invalidQuantity = parsedQty === null;
+  const insufficientQuantity = parsedQty !== null && parsedQty < row.remainingQuantity;
   const needsProduct = !row.matchedProduct;
   const missingProductName = needsProduct && !trimmedProductName;
   const missingSpec = needsProduct && !trimmedSpec;
@@ -141,10 +143,16 @@ function validateUnmatchedRow(
   return {
     canMarkResolved: !missingNote,
     canReceiveAndApply:
-      !missingNote && !missingExpiry && !invalidQuantity && !missingProductName && !missingSpec,
+      !missingNote &&
+      !missingExpiry &&
+      !invalidQuantity &&
+      !insufficientQuantity &&
+      !missingProductName &&
+      !missingSpec,
     missingNote,
     missingExpiry,
     invalidQuantity,
+    insufficientQuantity,
     missingProductName,
     missingSpec,
   };
@@ -515,6 +523,11 @@ export default function ImportPage() {
 
     if (receiptQuantity === null) {
       setError("入荷数量は1以上で入力してください。");
+      return;
+    }
+
+    if (receiptQuantity < row.remainingQuantity) {
+      setError(`入荷数量は未割当の残数 ${row.remainingQuantity} 個以上で入力してください。`);
       return;
     }
 
@@ -1090,6 +1103,9 @@ export default function ImportPage() {
                                 </div>
                                 <ValidationHint show={validation?.invalidQuantity ?? false}>
                                   入荷数量は1以上で入力してください
+                                </ValidationHint>
+                                <ValidationHint show={validation?.insufficientQuantity ?? false}>
+                                  入荷数量は残数 {row.remainingQuantity} 個以上で入力してください
                                 </ValidationHint>
                               </div>
                             </div>
