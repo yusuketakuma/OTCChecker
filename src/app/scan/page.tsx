@@ -122,6 +122,8 @@ function ScanPageContent() {
     name: string;
     spec: string;
     quantity: number;
+    expiryDate: string;
+    lotId?: string;
   } | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScanEntry[]>(() => {
     if (typeof window === "undefined") {
@@ -499,17 +501,19 @@ function ScanPageContent() {
       const code = normalizedJanCode;
 
       let recentProductId = product?.id ?? "";
+      let savedLotId = "";
       const savedProductName = product?.name ?? name;
       const savedProductSpec = product?.spec ?? spec;
 
       if (product?.id) {
-        await postJson("/api/lots", {
+        const savedLot = await postJson<{ id: string }>("/api/lots", {
           productId: product.id,
           expiryDate,
           quantity: parsedQuantity,
         });
+        savedLotId = savedLot.id;
       } else {
-        const createdProduct = await postJson<{ id: string }>("/api/products", {
+        const createdProduct = await postJson<{ id: string; lotId?: string }>("/api/products", {
           janCode: code,
           name,
           spec,
@@ -519,6 +523,7 @@ function ScanPageContent() {
           },
         });
         recentProductId = createdProduct.id;
+        savedLotId = createdProduct.lotId ?? "";
       }
 
       setLastSubmittedDraft({
@@ -533,6 +538,8 @@ function ScanPageContent() {
           name: savedProductName,
           spec: savedProductSpec,
           quantity: parsedQuantity,
+          expiryDate,
+          ...(savedLotId ? { lotId: savedLotId } : {}),
         });
       }
       pushRecentScan({
@@ -803,14 +810,23 @@ function ScanPageContent() {
               <p className="text-emerald-900/80">
                 JAN {lastSavedProduct.janCode} に {lastSavedProduct.quantity} 個を反映しました。
               </p>
+              <p className="text-emerald-900/80">今回の期限: {lastSavedProduct.expiryDate}</p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               <Link
                 className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
                 href={`/inventory/${lastSavedProduct.id}`}
               >
                 在庫詳細を開く
               </Link>
+              {lastSavedProduct.lotId ? (
+                <Link
+                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99]"
+                  href={`/inventory/${lastSavedProduct.id}#lot-${lastSavedProduct.lotId}`}
+                >
+                  今回のロットへ
+                </Link>
+              ) : null}
               <button
                 type="button"
                 disabled={isSubmitting}

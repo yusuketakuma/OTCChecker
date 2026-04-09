@@ -42,17 +42,18 @@ export async function POST(request: Request) {
     });
 
     if (existing) {
-      if (parsed.data.initialLot) {
-        await receiveStockInTx(prisma, {
-          productId: existing.id,
-          expiryDate: parsed.data.initialLot.expiryDate,
-          quantity: parsed.data.initialLot.quantity,
-        });
-      }
+      const receivedLot = parsed.data.initialLot
+        ? await receiveStockInTx(prisma, {
+            productId: existing.id,
+            expiryDate: parsed.data.initialLot.expiryDate,
+            quantity: parsed.data.initialLot.quantity,
+          })
+        : null;
 
       return ok({
         ...existing,
         action: parsed.data.initialLot ? "received-on-existing" : "existing",
+        ...(receivedLot ? { lotId: receivedLot.id } : {}),
       });
     }
 
@@ -78,17 +79,18 @@ export async function POST(request: Request) {
         });
 
         if (conflicted) {
-          if (parsed.data.initialLot) {
-            await receiveStockInTx(prisma, {
-              productId: conflicted.id,
-              expiryDate: parsed.data.initialLot.expiryDate,
-              quantity: parsed.data.initialLot.quantity,
-            });
-          }
+          const receivedLot = parsed.data.initialLot
+            ? await receiveStockInTx(prisma, {
+                productId: conflicted.id,
+                expiryDate: parsed.data.initialLot.expiryDate,
+                quantity: parsed.data.initialLot.quantity,
+              })
+            : null;
 
           return ok({
             ...conflicted,
             action: parsed.data.initialLot ? "received-on-existing" : "existing",
+            ...(receivedLot ? { lotId: receivedLot.id } : {}),
           });
         }
       }
@@ -96,17 +98,18 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    if (parsed.data.initialLot) {
-      await receiveStockInTx(prisma, {
-        productId: created.id,
-        expiryDate: parsed.data.initialLot.expiryDate,
-        quantity: parsed.data.initialLot.quantity,
-      });
-    }
+    const createdLot = parsed.data.initialLot
+      ? await receiveStockInTx(prisma, {
+          productId: created.id,
+          expiryDate: parsed.data.initialLot.expiryDate,
+          quantity: parsed.data.initialLot.quantity,
+        })
+      : null;
 
     return ok({
       ...created,
       action: parsed.data.initialLot ? "created-with-lot" : "created",
+      ...(createdLot ? { lotId: createdLot.id } : {}),
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
