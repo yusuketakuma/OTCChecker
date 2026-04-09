@@ -408,6 +408,27 @@ export default function InventoryDetailPage() {
     () => saleableLots.reduce((sum, lot) => sum + lot.quantity, 0),
     [saleableLots],
   );
+  const productSummary = useMemo(() => {
+    const lots = product?.lots ?? [];
+    const expiredLots = lots.filter(
+      (lot) => lot.status === "ACTIVE" && diffDaysFromToday(lot.expiryDate) < 0,
+    );
+    const todayLots = lots.filter(
+      (lot) => lot.status === "ACTIVE" && diffDaysFromToday(lot.expiryDate) === 0,
+    );
+    const nextActionLot = lots.find((lot) => lot.status === "ACTIVE" && lot.quantity > 0) ?? null;
+
+    return {
+      activeLotCount: lots.filter((lot) => lot.status === "ACTIVE").length,
+      archivedLotCount: lots.filter((lot) => lot.status === "ARCHIVED").length,
+      expiredLotCount: expiredLots.length,
+      todayLotCount: todayLots.length,
+      earliestExpiry: nextActionLot ? formatDateLabel(nextActionLot.expiryDate) : null,
+      nextActionLotId: nextActionLot?.id ?? null,
+      firstExpiredLotId: expiredLots[0]?.id ?? null,
+      firstTodayLotId: todayLots[0]?.id ?? null,
+    };
+  }, [product?.lots]);
   const saleRemainingQuantity =
     parsedSaleQuantity === null
       ? saleableQuantity
@@ -854,6 +875,64 @@ export default function InventoryDetailPage() {
       ) : null}
 
       <Card className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl bg-slate-50/90 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">総在庫</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--color-text)]">{totalActiveQuantity}個</p>
+            <p className="mt-1 text-sm text-slate-500">販売可能 {saleableQuantity}個</p>
+          </div>
+          <div className="rounded-2xl bg-rose-50/90 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-600">期限切れ対応</p>
+            <p className="mt-2 text-2xl font-semibold text-rose-900">{productSummary.expiredLotCount}件</p>
+            <p className="mt-1 text-sm text-rose-700">本日期限 {productSummary.todayLotCount}件</p>
+          </div>
+          <div className="rounded-2xl bg-white/90 p-4 ring-1 ring-slate-200">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">最短期限</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--color-text)]">{productSummary.earliestExpiry ?? "-"}</p>
+            <p className="mt-1 text-sm text-slate-500">有効 {productSummary.activeLotCount}件 / 履歴 {productSummary.archivedLotCount}件</p>
+          </div>
+          <div className="rounded-2xl bg-emerald-50/90 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">すぐ操作</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                className="inline-flex h-10 items-center justify-center rounded-full bg-emerald-700 px-4 text-sm font-semibold text-white"
+                href="#manual-receipt"
+              >
+                手動入荷
+              </a>
+              <a
+                className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200"
+                href="#manual-sale"
+              >
+                手動売上
+              </a>
+              {productSummary.firstExpiredLotId ? (
+                <a
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-rose-100 px-4 text-sm font-semibold text-rose-800 ring-1 ring-rose-200"
+                  href={`#lot-${productSummary.firstExpiredLotId}`}
+                >
+                  期限切れへ
+                </a>
+              ) : null}
+              {!productSummary.firstExpiredLotId && productSummary.firstTodayLotId ? (
+                <a
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-amber-100 px-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-200"
+                  href={`#lot-${productSummary.firstTodayLotId}`}
+                >
+                  本日期限へ
+                </a>
+              ) : null}
+              {!productSummary.firstExpiredLotId && !productSummary.firstTodayLotId && productSummary.nextActionLotId ? (
+                <a
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
+                  href={`#lot-${productSummary.nextActionLotId}`}
+                >
+                  最初のロットへ
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
         <div className="space-y-3">
           <div className="space-y-2">
             <FieldLabel>商品名</FieldLabel>
