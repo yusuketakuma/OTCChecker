@@ -441,15 +441,11 @@ function ImportPageContent({
     return () => window.clearTimeout(timeoutId);
   }, [unmatched.length]);
 
-  async function previewFile() {
-    if (!file) {
-      return;
-    }
-
+  async function previewSelectedFile(selectedFile: File) {
     setPreviewing(true);
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", selectedFile);
 
     try {
       const response = await fetch("/api/import/preview", {
@@ -469,6 +465,14 @@ function ImportPageContent({
     } finally {
       setPreviewing(false);
     }
+  }
+
+  async function previewFile() {
+    if (!file) {
+      return;
+    }
+
+    return previewSelectedFile(file);
   }
 
   async function executeImport() {
@@ -713,7 +717,15 @@ function ImportPageContent({
           ref={fileInputRef}
           accept=".csv,text/csv"
           disabled={!isOnline}
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            const selected = event.target.files?.[0] ?? null;
+            setFile(selected);
+            setPreview(null);
+            setError("");
+            if (selected && isOnline) {
+              void previewSelectedFile(selected);
+            }
+          }}
           type="file"
         />
         {file ? (
