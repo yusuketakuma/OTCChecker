@@ -1,8 +1,8 @@
-import { Prisma } from "@prisma/client";
+import { InventoryLotStatus, Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
 import { normalizeJanCode } from "@/lib/csv";
-import { normalizeAlertDays } from "@/lib/date";
+import { formatDateLabel, getExpiryBucket, normalizeAlertDays, diffDaysFromToday } from "@/lib/date";
 import { getPrisma } from "@/lib/prisma";
 
 export async function GET(
@@ -27,6 +27,15 @@ export async function GET(
         spec: true,
         janCode: true,
         alertDays: true,
+        lots: {
+          where: { status: InventoryLotStatus.ACTIVE },
+          orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            expiryDate: true,
+            quantity: true,
+          },
+        },
       },
     });
 
@@ -42,9 +51,22 @@ export async function GET(
         )
       : [30, 7, 0];
 
+    const earliestLot = product.lots[0] ?? null;
+    const totalQuantity = product.lots.reduce((sum, lot) => sum + lot.quantity, 0);
+
     return ok({
-      ...product,
+      id: product.id,
+      name: product.name,
+      spec: product.spec,
+      janCode: product.janCode,
       alertDays: alertDays as Prisma.JsonValue,
+      inventorySummary: {
+        totalQuantity,
+        activeLotCount: product.lots.length,
+        earliestExpiry: earliestLot ? formatDateLabel(earliestLot.expiryDate) : null,
+        earliestLotId: earliestLot?.id ?? null,
+        bucket: earliestLot ? getExpiryBucket(diffDaysFromToday(earliestLot.expiryDate)) : null,
+      },
     });
   } catch (error) {
     return fail(500, "PRODUCT_LOOKUP_FAILED", "JAN照会に失敗しました", error);

@@ -32,6 +32,13 @@ type ProductLookup = {
   spec: string;
   janCode: string;
   alertDays: number[];
+  inventorySummary: {
+    totalQuantity: number;
+    activeLotCount: number;
+    earliestExpiry: string | null;
+    earliestLotId: string | null;
+    bucket: "expired" | "today" | "within7" | "within30" | "safe" | null;
+  };
 } | null;
 
 type LookupState =
@@ -490,7 +497,11 @@ function ScanPageContent() {
         name: product?.name ?? name,
         spec: product?.spec ?? spec,
       });
-      setMessage(product ? "既存SKUへ入荷登録しました。" : "新規SKUを作成して入荷登録しました。");
+      setMessage(
+        product
+          ? `既存SKUへ入荷登録しました。現在庫は ${product.inventorySummary.totalQuantity + parsedQuantity} 個の見込みです。`
+          : "新規SKUを作成して入荷登録しました。",
+      );
       setJanCode("");
       setLookupState({ status: "idle", janCode: "" });
       setName("");
@@ -673,6 +684,44 @@ function ScanPageContent() {
           </div>
         </div>
         <p className="text-sm text-slate-500">{helperText}</p>
+        {product ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-950">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">既存在庫の状況</p>
+                <p className="mt-1">
+                  {product.name} / {product.spec}
+                </p>
+              </div>
+              <Badge
+                tone={
+                  product.inventorySummary.bucket === "expired"
+                    ? "danger"
+                    : product.inventorySummary.bucket === "today" || product.inventorySummary.bucket === "within7"
+                      ? "warning"
+                      : product.inventorySummary.bucket === "within30"
+                        ? "info"
+                        : "success"
+                }
+              >
+                {product.inventorySummary.bucket === "expired"
+                  ? "期限切れあり"
+                  : product.inventorySummary.bucket === "today"
+                    ? "本日期限あり"
+                    : product.inventorySummary.bucket === "within7"
+                      ? "7日以内あり"
+                      : product.inventorySummary.bucket === "within30"
+                        ? "30日以内あり"
+                        : "安全在庫"}
+              </Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-emerald-900/90">
+              <p>現在庫: {product.inventorySummary.totalQuantity}個</p>
+              <p>有効ロット: {product.inventorySummary.activeLotCount}件</p>
+              <p className="col-span-2">最短期限: {product.inventorySummary.earliestExpiry ?? "登録なし"}</p>
+            </div>
+          </div>
+        ) : null}
         {(expiryDate || (parsedQuantity ?? 1) > 1) ? (
           <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900">
             <div className="flex items-start justify-between gap-3">
