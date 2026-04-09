@@ -274,6 +274,7 @@ function ImportPageContent({
   const [bulkResolutionNote, setBulkResolutionNote] = useState("確認済み");
   const [bulkExpiryDate, setBulkExpiryDate] = useState("");
   const [bulkReceiptQuantity, setBulkReceiptQuantity] = useState("");
+  const [bulkSpec, setBulkSpec] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const previewSummary = preview ? summarizePreview(preview.rows) : null;
@@ -498,6 +499,7 @@ function ImportPageContent({
     const nextNote = bulkResolutionNote;
     const nextExpiryDate = bulkExpiryDate;
     const parsedBulkQuantity = parsePositiveIntegerInput(bulkReceiptQuantity);
+    const trimmedBulkSpec = bulkSpec.trim();
 
     setResolutionDrafts((current) => ({
       ...current,
@@ -515,6 +517,17 @@ function ImportPageContent({
       setReceiptQuantityDrafts((current) => ({
         ...current,
         ...Object.fromEntries(filteredUnmatched.map((row) => [row.id, String(parsedBulkQuantity)])),
+      }));
+    }
+
+    if (trimmedBulkSpec) {
+      setSpecDrafts((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          filteredUnmatched
+            .filter((row) => !row.matchedProduct)
+            .map((row) => [row.id, trimmedBulkSpec]),
+        ),
       }));
     }
 
@@ -865,7 +878,7 @@ function ImportPageContent({
               </div>
               <div className="space-y-3 rounded-2xl bg-slate-50/90 p-3">
                 <FieldLabel>表示中の未割当に一括入力</FieldLabel>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-2 rounded-2xl border border-[var(--color-brand-soft)] bg-white/80 p-3">
                     <div className="space-y-1">
                       <FormLabel htmlFor="bulk-resolution-note">一括解決メモ</FormLabel>
@@ -878,6 +891,19 @@ function ImportPageContent({
                       value={bulkResolutionNote}
                       onChange={(event) => setBulkResolutionNote(event.target.value)}
                       placeholder="例: 棚卸確認済み"
+                    />
+                  </div>
+                  <div className="space-y-2 rounded-2xl border border-slate-200 bg-white/80 p-3">
+                    <div className="space-y-1">
+                      <FormLabel htmlFor="bulk-spec">一括規格</FormLabel>
+                      <p className="text-xs text-slate-500">商品未一致の行だけへ共通規格を入れます。</p>
+                    </div>
+                    <Input
+                      id="bulk-spec"
+                      disabled={!isOnline}
+                      value={bulkSpec}
+                      onChange={(event) => setBulkSpec(event.target.value)}
+                      placeholder="例: 90粒"
                     />
                   </div>
                   <div className="space-y-2">
@@ -950,7 +976,7 @@ function ImportPageContent({
                   </div>
                 ) : null}
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-                  <p>検索や理由フィルタで表示中の行だけに反映します。</p>
+                  <p>検索や理由フィルタで表示中の行だけに反映します。規格は商品未一致の行にだけ入ります。</p>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       disabled={!isOnline || !filteredUnmatched.length || bulkResolvingAction !== null}
