@@ -40,7 +40,7 @@ export async function GET(
               not: "DELETED",
             },
           },
-          orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+          orderBy: [{ status: "asc" }, { expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
           include: {
             salesRecords: {
               orderBy: { createdAt: "desc" },
