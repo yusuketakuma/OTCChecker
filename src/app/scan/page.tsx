@@ -883,7 +883,7 @@ function ScanPageContent() {
                 className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99] disabled:opacity-50"
                 onClick={restoreLastSubmittedDraft}
               >
-                同じ商品でもう一件
+                同じ商品を続けて登録
               </button>
             </div>
           </div>
