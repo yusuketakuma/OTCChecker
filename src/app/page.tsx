@@ -19,6 +19,8 @@ type DashboardSummary = {
   within7Count: number;
   within30Count: number;
   unmatchedCount: number;
+  totalSkus: number;
+  totalQuantity: number;
   alertLots: Array<{
     lotId: string;
     productId: string;
@@ -146,6 +148,38 @@ export default function DashboardPage() {
               <p className="mt-1 text-sm opacity-80">{action.description}</p>
             </Link>
           ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-[var(--color-text)]">在庫サマリ</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/inventory">
+            <Card className="flex h-full min-h-28 flex-col bg-white/95 transition hover:-translate-y-0.5">
+              <div className="text-sm font-medium text-slate-500">管理SKU数</div>
+              <div className="mt-auto space-y-1 pt-4">
+                <CardTitle className="text-3xl sm:text-4xl">
+                  {data ? data.totalSkus : "--"}
+                </CardTitle>
+                <div>
+                  <CardDescription>在庫あり商品</CardDescription>
+                </div>
+              </div>
+            </Card>
+          </Link>
+          <Link href="/inventory">
+            <Card className="flex h-full min-h-28 flex-col bg-white/95 transition hover:-translate-y-0.5">
+              <div className="text-sm font-medium text-slate-500">総在庫数</div>
+              <div className="mt-auto space-y-1 pt-4">
+                <CardTitle className="text-3xl sm:text-4xl">
+                  {data ? data.totalQuantity : "--"}
+                </CardTitle>
+                <div>
+                  <CardDescription>全ロット合計</CardDescription>
+                </div>
+              </div>
+            </Card>
+          </Link>
         </div>
       </section>
 

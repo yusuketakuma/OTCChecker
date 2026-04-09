@@ -313,11 +313,16 @@ export async function getDashboardSummary() {
     where: { resolved: false },
   });
 
+  const productIds = new Set<string>();
+  let totalQuantity = 0;
+
   const summary = {
     expiredCount: 0,
     within7Count: 0,
     within30Count: 0,
     unmatchedCount,
+    totalSkus: 0,
+    totalQuantity: 0,
     alertLots: [] as Array<{
       lotId: string;
       productId: string;
@@ -333,6 +338,9 @@ export async function getDashboardSummary() {
   for (const lot of lots) {
     const diffDays = diffDaysFromToday(lot.expiryDate);
     const bucket = getExpiryBucket(diffDays);
+
+    productIds.add(lot.productId);
+    totalQuantity += lot.quantity;
 
     if (bucket === "expired") {
       summary.expiredCount += 1;
@@ -357,6 +365,9 @@ export async function getDashboardSummary() {
       });
     }
   }
+
+  summary.totalSkus = productIds.size;
+  summary.totalQuantity = totalQuantity;
 
   summary.alertLots = summary.alertLots.slice(0, 10);
   return summary;
