@@ -274,8 +274,10 @@ function ImportPageContent({
   const [unmatchedQuery, setUnmatchedQuery] = useState(initialQuery);
   const [unmatchedReasonFilter, setUnmatchedReasonFilter] = useState<UnmatchedReasonFilterKey>(initialReasonFilter);
   const [bulkResolutionNote, setBulkResolutionNote] = useState("確認済み");
-  const [bulkExpiryDate, setBulkExpiryDate] = useState("");
-  const [bulkReceiptQuantity, setBulkReceiptQuantity] = useState("");
+  const [bulkExpiryDate, setBulkExpiryDate] = useState(() => readStoredReceiptDefaults().expiryDate);
+  const [bulkReceiptQuantity, setBulkReceiptQuantity] = useState(
+    () => String(readStoredReceiptDefaults().quantity),
+  );
   const [bulkSpec, setBulkSpec] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -750,6 +752,31 @@ function ImportPageContent({
 
       {preview ? (
         <Card className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>プレビュー結果</CardTitle>
+              <CardDescription>長いCSVでも、この場から未割当確認や実行へ進めます。</CardDescription>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              {(previewSummary?.unmatched ?? preview.meta.unmatchedCount) > 0 ? (
+                <Link
+                  className="inline-flex h-11 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200 transition active:scale-[0.99]"
+                  href="#unmatched-list"
+                  onClick={scrollToUnmatchedSection}
+                >
+                  未割当一覧へ
+                </Link>
+              ) : null}
+              <Button
+                className="min-w-36"
+                disabled={!isOnline || executing}
+                onClick={executeImport}
+                variant="secondary"
+              >
+                {executing ? "実行中..." : "このまま消し込み実行"}
+              </Button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             {[
               {
