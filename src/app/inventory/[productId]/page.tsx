@@ -45,6 +45,7 @@ type Lot = {
   initialQuantity: number;
   status: "ACTIVE" | "ARCHIVED" | "DELETED";
   version: number;
+  createdAt: string;
   salesRecords: Array<{
     id: string;
     quantity: number;
@@ -1243,7 +1244,7 @@ export default function InventoryDetailPage() {
                     <div>
                       <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>
                       <CardDescription>
-                        {expiryMeta.relativeLabel} / 初回 {lot.initialQuantity}個 / 現在 {lot.quantity}個
+                        {expiryMeta.relativeLabel} / 初回 {lot.initialQuantity}個 / 現在 {lot.quantity}個 / 入荷{diffDaysFromToday(lot.createdAt) === 0 ? "当日" : `${diffDaysFromToday(lot.createdAt)}日前`}
                       </CardDescription>
                     </div>
                     <div className="space-y-2 text-right">
