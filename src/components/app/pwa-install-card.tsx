@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -33,9 +35,17 @@ export function PwaInstallCard({ onDismiss }: PwaInstallCardProps) {
         <li>追加後はホーム画面のアイコンから開く</li>
       </ol>
 
-      <Button className="w-full" variant="secondary" onClick={onDismiss}>
-        今は閉じる
-      </Button>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Link
+          href="/settings#pwa-install"
+          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+        >
+          手順を詳しく見る
+        </Link>
+        <Button className="w-full" variant="secondary" onClick={onDismiss}>
+          今は閉じる
+        </Button>
+      </div>
     </Card>
   );
 }

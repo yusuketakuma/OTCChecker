@@ -204,7 +204,7 @@ export default function SettingsPage() {
         )}
       </Card>
 
-      <Card className="space-y-4">
+      <Card className="space-y-4 scroll-mt-24" id="pwa-install">
         <div className="flex items-center justify-between gap-3">
           <div>
             <CardTitle>PWA インストール手順</CardTitle>
