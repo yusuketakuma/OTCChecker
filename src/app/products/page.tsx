@@ -128,6 +128,7 @@ function ProductsPageContent({
   const [lastSubmittedDraft, setLastSubmittedDraft] = useState<LastSubmittedProductDraft | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [loadingItems, setLoadingItems] = useState(false);
   const handledHashRef = useRef<string | null>(null);
   const deferredQuery = useDeferredValue(query);
   const deferredJanCode = useDeferredValue(janCode);
@@ -135,10 +136,17 @@ function ProductsPageContent({
   const janCodeValid = /^\d{8,14}$/.test(janCode);
 
   async function loadProducts(search: string, nextFilter: ProductFilterKey) {
-    const data = await fetchJson<ProductMasterSummary[]>(
-      `/api/products?mode=master&q=${encodeURIComponent(search)}&filter=${nextFilter}`,
-    );
-    setItems(data);
+    setLoadingItems(true);
+
+    try {
+      const data = await fetchJson<ProductMasterSummary[]>(
+        `/api/products?mode=master&q=${encodeURIComponent(search)}&filter=${nextFilter}`,
+      );
+      setItems(data);
+      setError("");
+    } finally {
+      setLoadingItems(false);
+    }
   }
 
   function keepFocusOn(targetId: string) {
@@ -181,6 +189,8 @@ function ProductsPageContent({
   useEffect(() => {
     const controller = new AbortController();
 
+    setLoadingItems(true);
+
     fetchJson<ProductMasterSummary[]>(
       `/api/products?mode=master&q=${encodeURIComponent(deferredQuery)}&filter=${filter}`,
       { signal: controller.signal },
@@ -192,6 +202,11 @@ function ProductsPageContent({
       .catch((cause) => {
         if (!controller.signal.aborted) {
           setError(cause.message);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadingItems(false);
         }
       });
 
@@ -513,7 +528,7 @@ function ProductsPageContent({
             <CardTitle>新規商品を追加</CardTitle>
             <CardDescription>商品だけ先に作るか、期限日と数量を入れて初回ロットまで登録できます。</CardDescription>
           </div>
-          <Badge tone="neutral">{items.length}件</Badge>
+          <Badge tone="neutral">{loadingItems ? "更新中..." : `${items.length}件`}</Badge>
         </div>
         <div className="grid gap-3">
           <Input
@@ -696,7 +711,20 @@ function ProductsPageContent({
         {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
       </Card>
 
-      {!items.length ? (
+      {error && !items.length ? (
+        <Card className="space-y-3">
+          <CardTitle>商品一覧を取得できませんでした</CardTitle>
+          <CardDescription>
+            通信や API の応答に失敗しています。検索条件を変えるか、再試行してください。
+          </CardDescription>
+          <p className="text-sm text-[var(--color-danger)]">{error}</p>
+          <Button disabled={loadingItems} variant="secondary" onClick={() => void loadProducts(query.trim(), filter)}>
+            {loadingItems ? "再試行中..." : "再試行"}
+          </Button>
+        </Card>
+      ) : loadingItems && !items.length ? (
+        <EmptyState title="商品を読み込み中です" description="検索結果を取得しています。少し待ってください。" />
+      ) : !items.length ? (
         <EmptyState
           title="商品が見つかりません"
           description="検索条件を変えるか、新規商品マスタを登録してください。"
