@@ -32,7 +32,7 @@ import {
   readStoredReceiptDefaults,
   writeStoredReceiptDefaults,
 } from "@/lib/receipt-defaults";
-import { parseAlertDaysInput } from "@/lib/utils";
+import { buildScanHref, parseAlertDaysInput } from "@/lib/utils";
 
 type HistoryTab = "receipts" | "sales" | "disposals" | "adjustments";
 type LotActionKind = "update" | "adjust" | "dispose" | "delete";
@@ -920,6 +920,18 @@ export default function InventoryDetailPage() {
           <div className="rounded-2xl bg-emerald-50/90 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">すぐ操作</p>
             <div className="mt-3 flex flex-wrap gap-2">
+              {product ? (
+                <Link
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-[var(--color-brand)] px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15"
+                  href={buildScanHref({
+                    janCode: product.janCode,
+                    name: product.name,
+                    spec: product.spec,
+                  })}
+                >
+                  スキャン入荷
+                </Link>
+              ) : null}
               <a
                 className="inline-flex h-10 items-center justify-center rounded-full bg-emerald-700 px-4 text-sm font-semibold text-white"
                 href="#manual-receipt"
