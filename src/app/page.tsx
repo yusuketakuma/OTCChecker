@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson } from "@/lib/client";
 
 type DashboardSummary = {
@@ -105,25 +106,9 @@ export default function DashboardPage() {
     void loadSummary();
   }, [loadSummary]);
 
-  useEffect(() => {
-    function handleFocus() {
-      void loadSummary();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible") {
-        void loadSummary();
-      }
-    }
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [loadSummary]);
+  useRefreshOnForeground(() => {
+    void loadSummary();
+  });
 
   return (
     <div className="space-y-6">

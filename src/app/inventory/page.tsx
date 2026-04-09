@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
+import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson } from "@/lib/client";
 import { formatQuantity } from "@/lib/utils";
 
@@ -91,7 +92,18 @@ function InventoryPageContent({
       });
 
     return () => controller.abort();
-  }, [deferredQuery, bucket]);
+  }, [bucket, deferredQuery]);
+
+  useRefreshOnForeground(() => {
+    fetchJson<InventoryRow[]>(`/api/products?q=${encodeURIComponent(activeQuery)}&bucket=${bucket}`)
+      .then((data) => {
+        setItems(data);
+        setError("");
+      })
+      .catch((cause) => {
+        setError((cause as Error).message);
+      });
+  });
 
   useEffect(() => {
     const nextParams = buildInventorySearchParams(query, bucket);

@@ -25,6 +25,7 @@ import {
   sanitizeJanInput,
 } from "@/lib/mobile-input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { formatLotNumber, formatQuantity } from "@/lib/utils";
 
 type ProductMasterSummary = {
@@ -158,6 +159,10 @@ function ProductsPageContent({
 
     return () => controller.abort();
   }, [deferredQuery, filter]);
+
+  useRefreshOnForeground(() => {
+    void loadProducts(query.trim(), filter);
+  });
 
   useEffect(() => {
     const nextParams = buildProductSearchParams(query, filter);

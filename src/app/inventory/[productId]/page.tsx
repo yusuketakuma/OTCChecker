@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson, postJson, putJson } from "@/lib/client";
 import {
   addDaysToDateKey,
@@ -466,6 +467,10 @@ export default function InventoryDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useRefreshOnForeground(() => {
+    void load();
+  });
 
   useEffect(() => {
     const storedDefaults = readStoredReceiptDefaults();

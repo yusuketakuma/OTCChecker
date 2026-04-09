@@ -12,6 +12,7 @@ import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson, putJson } from "@/lib/client";
 import { parsePositiveIntegerInput, positiveIntegerInputProps } from "@/lib/mobile-input";
 import {
@@ -341,6 +342,10 @@ export default function ImportPage() {
   useEffect(() => {
     loadUnmatched().catch(() => undefined);
   }, [loadUnmatched]);
+
+  useRefreshOnForeground(() => {
+    void loadUnmatched();
+  });
 
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#unmatched-list") {
