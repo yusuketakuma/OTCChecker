@@ -265,6 +265,8 @@ function InventoryPageContent({
                   <span className="text-slate-400">|</span>
                   <span>期限 {item.earliestExpiry ?? "-"}</span>
                   <span className="text-slate-400">|</span>
+                  <span>{item.activeLotCount}ロット</span>
+                  <span className="text-slate-400">|</span>
                   <span className="text-xs tabular-nums text-slate-500">JAN {item.janCode}</span>
                 </div>
               </Link>
