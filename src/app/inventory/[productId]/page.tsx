@@ -1118,7 +1118,7 @@ export default function InventoryDetailPage() {
                     <div>
                       <p className="font-medium">期限 {formatDateLabel(lot.expiryDate)}</p>
                       <p className="text-xs text-slate-500">
-                        売上前 {lot.beforeQuantity}個 → 売上後 {lot.afterQuantity}個
+                        売上前 {lot.beforeQuantity}個 → 売上後 {lot.afterQuantity}個{lot.afterQuantity === 0 ? "（アーカイブ）" : ""}
                       </p>
                     </div>
                     <Badge tone="info">-{lot.consumeQuantity}個</Badge>
