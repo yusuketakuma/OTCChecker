@@ -87,6 +87,7 @@ const quickActions = [
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
+  const [lastLoaded, setLastLoaded] = useState<Date | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -103,6 +104,7 @@ export default function DashboardPage() {
       const summary = await fetchJson<DashboardSummary>("/api/dashboard/summary", { signal });
       if (signal?.aborted) return;
       setData(summary);
+      setLastLoaded(new Date());
       setError("");
     } catch (cause) {
       if (signal?.aborted) return;
@@ -159,7 +161,12 @@ export default function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-[var(--color-text)]">在庫サマリ</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[var(--color-text)]">在庫サマリ</h2>
+          {lastLoaded ? (
+            <span className="text-xs text-slate-400">{lastLoaded.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} 更新</span>
+          ) : null}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Link href="/inventory">
             <Card className="flex h-full min-h-28 flex-col bg-white/95 transition hover:-translate-y-0.5">
