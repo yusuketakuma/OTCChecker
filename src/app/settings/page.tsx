@@ -13,6 +13,7 @@ import { parseAlertDaysInput } from "@/lib/utils";
 
 type Settings = {
   defaultAlertDays: number[];
+  timezone: string;
 };
 
 type BuildInfo = {
@@ -153,6 +154,16 @@ export default function SettingsPage() {
           <Button className="w-full" variant="secondary" disabled={!isOnline || !hasUnsavedChanges} onClick={resetAlertDays}>
             変更を戻す
           </Button>
+        </div>
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>日付と判定基準</CardTitle>
+        <CardDescription>期限判定と通知は常に日本時間で動作します。</CardDescription>
+        <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+          <p>タイムゾーン: {settings?.timezone ?? "Asia/Tokyo"}</p>
+          <p className="mt-2">期限切れ、本日、7日以内、30日以内の判定は JST の日付だけで計算します。</p>
+          <p className="mt-2">iPhone や PC の端末時刻が UTC 表示でも、業務判定は日本時間基準です。</p>
         </div>
       </Card>
 

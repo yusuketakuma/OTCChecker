@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { fail, ok } from "@/lib/api";
-import { buildSettingsUpdate, getSettings } from "@/lib/settings";
+import { buildSettingsUpdate, getSettings, serializeSettings } from "@/lib/settings";
 import { getPrisma } from "@/lib/prisma";
 import { settingsSchema } from "@/lib/validators";
 
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
       update: buildSettingsUpdate(normalizedData),
     });
 
-    return ok(updated);
+    return ok(serializeSettings(updated));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return fail(422, "SETTINGS_UPDATE_FAILED", "設定の更新に失敗しました", error.message);

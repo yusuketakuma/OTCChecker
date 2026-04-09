@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type AppSettings } from "@prisma/client";
 
 import { normalizeAlertDays } from "@/lib/date";
 import { getPrisma } from "@/lib/prisma";
@@ -21,6 +21,13 @@ function readAlertDays(value: Prisma.JsonValue | null | undefined) {
   );
 }
 
+export function serializeSettings(settings: AppSettings) {
+  return {
+    ...settings,
+    defaultAlertDays: readAlertDays(settings.defaultAlertDays),
+  };
+}
+
 export async function getSettings() {
   const prisma = await getPrisma();
   const settings = await prisma.appSettings.upsert({
@@ -29,10 +36,7 @@ export async function getSettings() {
     update: {},
   });
 
-  return {
-    ...settings,
-    defaultAlertDays: readAlertDays(settings.defaultAlertDays),
-  };
+  return serializeSettings(settings);
 }
 
 export function buildSettingsUpdate(data: {
