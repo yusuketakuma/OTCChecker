@@ -135,19 +135,22 @@ function ProductsPageContent({
   const initialLotQuantity = parsePositiveIntegerInput(quantity);
   const janCodeValid = /^\d{8,14}$/.test(janCode);
 
-  async function loadProducts(search: string, nextFilter: ProductFilterKey) {
+  async function loadProducts(search: string, nextFilter: ProductFilterKey, signal?: AbortSignal) {
     setLoadingItems(true);
 
     try {
       const data = await fetchJson<ProductMasterSummary[]>(
         `/api/products?mode=master&q=${encodeURIComponent(search)}&filter=${nextFilter}`,
+        { signal },
       );
+      if (signal?.aborted) return;
       setItems(data);
       setError("");
     } catch (cause) {
+      if (signal?.aborted) return;
       setError((cause as Error).message);
     } finally {
-      setLoadingItems(false);
+      if (!signal?.aborted) setLoadingItems(false);
     }
   }
 
@@ -189,11 +192,15 @@ function ProductsPageContent({
   }, []);
 
   useEffect(() => {
-    void loadProducts(deferredQuery, filter);
+    const controller = new AbortController();
+    void loadProducts(deferredQuery, filter, controller.signal);
+    return () => controller.abort();
   }, [deferredQuery, filter]);
 
   useRefreshOnForeground(() => {
-    void loadProducts(query.trim(), filter);
+    const controller = new AbortController();
+    void loadProducts(query.trim(), filter, controller.signal);
+    return () => controller.abort();
   });
 
   useEffect(() => {
