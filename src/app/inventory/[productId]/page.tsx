@@ -1240,9 +1240,10 @@ export default function InventoryDetailPage() {
               const expiryMeta = getExpiryStatusMeta(lot.expiryDate);
               const lotDomId = `lot-${lot.id}`;
               const isExpanded = expandedLotIds.has(lotDomId);
+              const isArchived = lot.status === "ARCHIVED";
 
               return (
-                <Card className="space-y-4 scroll-mt-24" id={lotDomId} key={lot.id}>
+                <Card className={`space-y-4 scroll-mt-24 ${isArchived ? "opacity-70" : ""}`} id={lotDomId} key={lot.id}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>
