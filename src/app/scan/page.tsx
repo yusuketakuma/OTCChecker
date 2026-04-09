@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -52,6 +53,7 @@ type RecentScanEntry = {
   janCode: string;
   name?: string;
   spec?: string;
+  productId?: string;
 };
 
 const recentScanStorageKey = "otc-checker:recent-scans";
@@ -85,10 +87,13 @@ function normalizeRecentScanEntry(value: unknown): RecentScanEntry | null {
   const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
   const spec = typeof candidate.spec === "string" ? candidate.spec.trim() : "";
 
+  const productId = typeof candidate.productId === "string" ? candidate.productId.trim() : "";
+
   return {
     janCode,
     ...(name ? { name } : {}),
     ...(spec ? { spec } : {}),
+    ...(productId ? { productId } : {}),
   };
 }
 
@@ -196,15 +201,25 @@ function ScanPageContent() {
     setSubmitError("");
   }
 
-  function handleJanChange(value: string) {
+  function handleJanChange(value: string, recentScan?: RecentScanEntry) {
     const nextValue = sanitizeJanInput(value);
     const nextNormalized = normalizeJanCode(nextValue);
 
     setJanCode(nextValue);
     setMessage("");
 
+    if (recentScan && nextNormalized) {
+      setName(recentScan.name ?? "");
+      setSpec(recentScan.spec ?? "");
+    }
+
     if (nextNormalized !== normalizedJanCode) {
       resetLookupForJan(nextValue);
+
+      if (recentScan && nextNormalized) {
+        setName(recentScan.name ?? "");
+        setSpec(recentScan.spec ?? "");
+      }
     }
   }
 
@@ -364,6 +379,7 @@ function ScanPageContent() {
             janCode: code,
             name: result.name,
             spec: result.spec,
+            productId: result.id,
           });
         } else {
           setLookupState({ status: "missing", janCode: code });
@@ -469,6 +485,8 @@ function ScanPageContent() {
       setMessage("");
       const code = normalizedJanCode;
 
+      let recentProductId = product?.id ?? "";
+
       if (product?.id) {
         await postJson("/api/lots", {
           productId: product.id,
@@ -476,7 +494,7 @@ function ScanPageContent() {
           quantity: parsedQuantity,
         });
       } else {
-        await postJson<{ id: string }>("/api/products", {
+        const createdProduct = await postJson<{ id: string }>("/api/products", {
           janCode: code,
           name,
           spec,
@@ -485,6 +503,7 @@ function ScanPageContent() {
             quantity: parsedQuantity,
           },
         });
+        recentProductId = createdProduct.id;
       }
 
       setLastSubmittedDraft({
@@ -496,6 +515,7 @@ function ScanPageContent() {
         janCode: code,
         name: product?.name ?? name,
         spec: product?.spec ?? spec,
+        ...(recentProductId ? { productId: recentProductId } : {}),
       });
       setMessage(
         product
@@ -784,7 +804,7 @@ function ScanPageContent() {
                 <button
                   className="px-4 py-2 text-left"
                   disabled={isSubmitting}
-                  onClick={() => handleJanChange(item.janCode)}
+                  onClick={() => handleJanChange(item.janCode, item)}
                   type="button"
                 >
                   <span className="block text-sm font-semibold text-slate-800">
@@ -794,6 +814,15 @@ function ScanPageContent() {
                     {item.name ? `${item.spec ? `${item.spec} / ` : ""}JAN ${item.janCode}` : "JANコードを再入力"}
                   </span>
                 </button>
+                {item.productId ? (
+                  <Link
+                    aria-label={`${item.name || item.janCode}の在庫詳細を開く`}
+                    className="border-l border-slate-200 px-3 py-2 text-xs font-semibold text-[var(--color-brand)] transition active:scale-[0.99]"
+                    href={`/inventory/${item.productId}`}
+                  >
+                    在庫
+                  </Link>
+                ) : null}
                 <button
                   aria-label={`${item.janCode} を履歴から削除`}
                   className="border-l border-slate-200 px-3 py-2 text-slate-500 transition active:scale-[0.99]"

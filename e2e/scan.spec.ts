@@ -22,8 +22,28 @@ test("既存SKUのJAN入力で照会→入荷登録ができる", async ({ page 
   await expect(page.getByText("既存SKU")).toBeVisible();
   await expect(qtyInput).toBeFocused();
 
-  // 直近読取履歴に JAN が残る
+  // 直近読取履歴に JAN が残り、在庫詳細へも飛べる
   await expect(page.getByText("4900000000006")).toBeVisible();
+  await expect(page.getByRole("link", { name: /の在庫詳細を開く/ })).toBeVisible();
+});
+
+test("履歴タップで商品名を即時復元し、既存在庫の詳細へ移動できる", async ({ page }) => {
+  await page.goto("/scan");
+  await page.getByPlaceholder("JANコード").fill("4900000000006");
+  await expect(page.getByText("既存SKU")).toBeVisible();
+  await expect(page.getByRole("link", { name: /の在庫詳細を開く/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "クリア", exact: true }).click();
+  await expect(page.getByPlaceholder("JANコード")).toHaveValue("");
+  await expect(page.getByPlaceholder("商品名")).toHaveValue("");
+
+  await page.getByRole("button", { name: /既存スキャンE2E商品/ }).click();
+  await expect(page.getByPlaceholder("JANコード")).toHaveValue("4900000000006");
+  await expect(page.getByPlaceholder("商品名")).toHaveValue("既存スキャンE2E商品");
+
+  await page.getByRole("link", { name: /の在庫詳細を開く/ }).click();
+  await expect(page).toHaveURL(/\/inventory\//);
+  await expect(page.getByRole("heading", { name: "ロット一覧" })).toBeVisible();
 });
 
 test("未登録JANコードで新規SKU作成→入荷登録ができる", async ({ page }) => {
