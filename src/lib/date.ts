@@ -3,13 +3,22 @@ import { formatInTimeZone } from "date-fns-tz";
 
 export const JST_TIME_ZONE = "Asia/Tokyo";
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_LABEL_PATTERN = /^\d{4}\/\d{2}\/\d{2}$/;
 
 function parseJstDateLike(date: Date | string) {
   if (date instanceof Date) {
     return date;
   }
 
-  return DATE_ONLY_PATTERN.test(date) ? parseDateOnly(date) : parseISO(date);
+  if (DATE_ONLY_PATTERN.test(date)) {
+    return parseDateOnly(date);
+  }
+
+  if (DATE_LABEL_PATTERN.test(date)) {
+    return parseDateOnly(date.replaceAll("/", "-"));
+  }
+
+  return parseISO(date);
 }
 
 export function todayJstKey(now = new Date()) {

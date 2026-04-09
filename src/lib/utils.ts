@@ -60,3 +60,37 @@ export function parseAlertDaysInput(input: string) {
     error: "",
   };
 }
+
+export function buildScanHref(params: {
+  janCode?: string;
+  name?: string;
+  spec?: string;
+  expiryDate?: string;
+  quantity?: number;
+}) {
+  const searchParams = new URLSearchParams();
+
+  if (params.janCode) {
+    searchParams.set("jan", params.janCode);
+  }
+
+  if (params.name) {
+    searchParams.set("name", params.name);
+  }
+
+  if (params.spec) {
+    searchParams.set("spec", params.spec);
+  }
+
+  if (params.expiryDate) {
+    searchParams.set("expiryDate", params.expiryDate);
+  }
+
+  if (typeof params.quantity === "number" && Number.isFinite(params.quantity) && params.quantity > 0) {
+    searchParams.set("quantity", String(params.quantity));
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `/scan?${query}` : "/scan";
+}

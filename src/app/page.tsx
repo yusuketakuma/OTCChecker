@@ -12,6 +12,7 @@ import { usePwaInstallState } from "@/hooks/use-pwa-install-state";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson } from "@/lib/client";
 import { getExpiryStatusMeta } from "@/lib/date";
+import { buildScanHref } from "@/lib/utils";
 
 type DashboardSummary = {
   expiredCount: number;
@@ -220,7 +221,11 @@ export default function DashboardPage() {
                     </Link>
                   ) : (
                     <Link
-                      href={`/scan?jan=${encodeURIComponent(lot.janCode)}&name=${encodeURIComponent(lot.productName)}&spec=${encodeURIComponent(lot.spec)}&quantity=1`}
+                      href={buildScanHref({
+                        janCode: lot.janCode,
+                        name: lot.productName,
+                        spec: lot.spec,
+                      })}
                       className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
                     >
                       スキャン入荷

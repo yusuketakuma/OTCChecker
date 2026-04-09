@@ -26,7 +26,7 @@ import {
 } from "@/lib/mobile-input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
-import { formatLotNumber, formatQuantity } from "@/lib/utils";
+import { buildScanHref, formatLotNumber, formatQuantity } from "@/lib/utils";
 
 type ProductMasterSummary = {
   productId: string;
@@ -466,7 +466,11 @@ function ProductsPageContent({
                   </Link>
                   <Link
                     className="inline-flex h-11 w-full items-center justify-center rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition active:scale-[0.99]"
-                    href={`/scan?jan=${encodeURIComponent(existingProduct.janCode)}&name=${encodeURIComponent(existingProduct.name)}&spec=${encodeURIComponent(existingProduct.spec)}&quantity=1`}
+                    href={buildScanHref({
+                      janCode: existingProduct.janCode,
+                      name: existingProduct.name,
+                      spec: existingProduct.spec,
+                    })}
                   >
                     スキャン入荷へ
                   </Link>
@@ -661,7 +665,11 @@ function ProductsPageContent({
                   <Link
                     aria-label={`${item.name}の入荷登録を開く`}
                     className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
-                    href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
+                    href={buildScanHref({
+                      janCode: item.janCode,
+                      name: item.name,
+                      spec: item.spec,
+                    })}
                   >
                     入荷する
                   </Link>

@@ -30,7 +30,7 @@ import {
   writeStoredReceiptDefaults,
 } from "@/lib/receipt-defaults";
 import { addDaysToDateKey, todayJstKey } from "@/lib/date";
-import { cn, formatQuantity } from "@/lib/utils";
+import { buildScanHref, cn, formatQuantity } from "@/lib/utils";
 
 type PreviewResponse = {
   previewId: string;
@@ -1062,7 +1062,12 @@ function ImportPageContent({
                             </Link>
                             <Link
                               className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
-                              href={`/scan?jan=${encodeURIComponent(row.matchedProduct.janCode)}&name=${encodeURIComponent(row.matchedProduct.name)}&spec=${encodeURIComponent(row.matchedProduct.spec)}&quantity=${encodeURIComponent(String(row.remainingQuantity))}`}
+                              href={buildScanHref({
+                                janCode: row.matchedProduct.janCode,
+                                name: row.matchedProduct.name,
+                                spec: row.matchedProduct.spec,
+                                quantity: row.remainingQuantity,
+                              })}
                             >
                               スキャン入荷
                             </Link>
@@ -1078,7 +1083,11 @@ function ImportPageContent({
                           </Link>
                           <Link
                             className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
-                            href={`/scan?jan=${encodeURIComponent(row.janCode ?? "")}&name=${encodeURIComponent(row.rawProductName ?? "")}&quantity=${encodeURIComponent(String(row.remainingQuantity))}`}
+                            href={buildScanHref({
+                              janCode: row.janCode ?? undefined,
+                              name: row.rawProductName ?? undefined,
+                              quantity: row.remainingQuantity,
+                            })}
                           >
                             新規商品として登録
                           </Link>

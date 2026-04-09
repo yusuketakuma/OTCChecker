@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { seededProducts } from "./fixtures";
+
 test("既存SKUのJAN入力で照会→入荷登録ができる", async ({ page }) => {
   await page.goto("/scan");
   await expect(page.getByRole("heading", { name: "バーコードから即登録" })).toBeVisible();
@@ -90,4 +92,27 @@ test("未登録JANのprefillでも商品名と規格を保持したまま新規S
   await expect(page.getByPlaceholder("商品名")).toBeEnabled();
   await expect(page.getByPlaceholder("規格")).toBeEnabled();
   await expect(page.getByRole("button", { name: "登録する" })).toBeDisabled();
+});
+
+test("在庫一覧からスキャン入荷へ移動しても保持中の入荷条件を潰さない", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.localStorage.setItem(
+      "otc-checker:scan-receipt-defaults",
+      JSON.stringify({ expiryDate: "2031-02-03", quantity: 5 }),
+    );
+  });
+
+  await page.goto("/inventory");
+  await page.waitForResponse((response) => response.url().includes("/api/products") && response.status() === 200);
+  await page.getByLabel("在庫を検索").fill(seededProducts.safe.janCode);
+  await page.waitForResponse((response) => response.url().includes("/api/products") && response.status() === 200);
+  await page.getByRole("link", { name: `${seededProducts.safe.name}のスキャン入荷を開く` }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/scan\\?`));
+  await expect(page.getByPlaceholder("JANコード")).toHaveValue(seededProducts.safe.janCode);
+  await expect(page.locator('input[type="date"]')).toHaveValue("2031-02-03");
+  await expect(page.locator('input[type="number"]')).toHaveValue("5");
+  await expect(page.getByText("前回の入荷条件を保持中")).toBeVisible();
+  await expect(page.getByText("期限日 2031-02-03 / 数量 5個")).toBeVisible();
 });

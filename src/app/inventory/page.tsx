@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson } from "@/lib/client";
 import { getExpiryStatusMeta } from "@/lib/date";
-import { formatQuantity } from "@/lib/utils";
+import { buildScanHref, formatQuantity } from "@/lib/utils";
 
 type InventoryRow = {
   productId: string;
@@ -254,7 +254,11 @@ function InventoryPageContent({
                 <Link
                   aria-label={`${item.name}のスキャン入荷を開く`}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
-                  href={`/scan?jan=${encodeURIComponent(item.janCode)}&name=${encodeURIComponent(item.name)}&spec=${encodeURIComponent(item.spec)}&quantity=1`}
+                  href={buildScanHref({
+                    janCode: item.janCode,
+                    name: item.name,
+                    spec: item.spec,
+                  })}
                 >
                   スキャン入荷
                 </Link>
