@@ -128,6 +128,7 @@ function ProductsPageContent({
   const [lastSubmittedDraft, setLastSubmittedDraft] = useState<LastSubmittedProductDraft | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const handledHashRef = useRef<string | null>(null);
   const deferredQuery = useDeferredValue(query);
@@ -498,23 +499,21 @@ function ProductsPageContent({
         ) : null}
       </Card>
 
-      <Card className="space-y-4">
-        <CardTitle>登録ガイド</CardTitle>
-        <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-          <p>1. 商品名・規格・JANを入力します。</p>
-          <p className="mt-2">2. 初回在庫も登録したい場合だけ、期限日と数量を入力します。</p>
-          <p className="mt-2">3. 同じJANがすでにある場合は、既存商品へ在庫追加として扱います。</p>
-          <p className="mt-2">4. 未入荷の商品だけ商品管理画面から削除できます。</p>
-        </div>
-      </Card>
+      <button
+        type="button"
+        className="flex h-14 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 text-base font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+        onClick={() => setShowAddForm((v) => !v)}
+      >
+        {showAddForm ? "登録フォームを閉じる" : "＋ 商品を追加"}
+      </button>
 
+      {showAddForm ? (
       <Card className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <CardTitle>新規商品を追加</CardTitle>
-            <CardDescription>商品だけ先に作るか、期限日と数量を入れて初回ロットまで登録できます。</CardDescription>
+            <CardDescription>商品名・規格・JANを入力。初回在庫もまとめて登録できます。</CardDescription>
           </div>
-          <Badge tone="neutral">{loadingItems ? "更新中..." : `${items.length}件`}</Badge>
         </div>
         <div className="grid gap-3">
           <Input
@@ -696,6 +695,7 @@ function ProductsPageContent({
         {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
         {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
       </Card>
+      ) : null}
 
       {loadingItems && items.length ? (
         <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-2 text-sm text-slate-500">
