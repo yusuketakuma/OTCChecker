@@ -70,9 +70,9 @@ const quickActions = [
     className: "bg-[var(--color-brand)] text-white shadow-lg shadow-emerald-900/15",
   },
   {
-    href: "/import",
+    href: "/import#unmatched-list",
     title: "CSV取込",
-    description: "売上CSVをまとめて処理",
+    description: "未割当確認まで直行",
     className: "bg-white/92 text-[var(--color-text)] ring-1 ring-slate-200",
   },
   {
