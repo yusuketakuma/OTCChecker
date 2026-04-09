@@ -87,11 +87,14 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { showInstallPrompt, dismissInstallPrompt } = usePwaInstallState();
 
   const loadSummary = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {
       setRefreshing(true);
+    } else {
+      setLoading(true);
     }
 
     try {
@@ -103,6 +106,8 @@ export default function DashboardPage() {
     } finally {
       if (showRefreshing) {
         setRefreshing(false);
+      } else {
+        setLoading(false);
       }
     }
   }, []);
@@ -183,7 +188,9 @@ export default function DashboardPage() {
           </div>
         </div>
         {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
-        {!data?.alertLots.length ? (
+        {loading && !data ? (
+          <EmptyState title="アラートを読み込み中です" description="在庫と期限を確認しています。少し待ってください。" />
+        ) : !data?.alertLots.length ? (
           <EmptyState title="アラート対象はありません" description="安全圏の在庫のみです。" />
         ) : (
           <div className="space-y-3">
