@@ -269,6 +269,8 @@ function ImportPageContent({
   const [executing, setExecuting] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [bulkResolvingAction, setBulkResolvingAction] = useState<"MARK_RESOLVED" | "RECEIVE_AND_APPLY" | null>(null);
+  const [unmatchedLoading, setUnmatchedLoading] = useState(false);
+  const [unmatchedLoadError, setUnmatchedLoadError] = useState("");
   const [unmatchedQuery, setUnmatchedQuery] = useState(initialQuery);
   const [unmatchedReasonFilter, setUnmatchedReasonFilter] = useState<UnmatchedReasonFilterKey>(initialReasonFilter);
   const [bulkResolutionNote, setBulkResolutionNote] = useState("確認済み");
@@ -404,12 +406,21 @@ function ImportPageContent({
   }
 
   const loadUnmatched = useCallback(async () => {
-    const rows = await fetchJson<UnmatchedRow[]>("/api/unmatched");
-    applyUnmatchedRows(rows);
+    setUnmatchedLoading(true);
+
+    try {
+      const rows = await fetchJson<UnmatchedRow[]>("/api/unmatched");
+      applyUnmatchedRows(rows);
+      setUnmatchedLoadError("");
+    } catch (cause) {
+      setUnmatchedLoadError((cause as Error).message);
+    } finally {
+      setUnmatchedLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    loadUnmatched().catch(() => undefined);
+    void loadUnmatched();
   }, [loadUnmatched]);
 
   useRefreshOnForeground(() => {
@@ -820,10 +831,29 @@ function ImportPageContent({
 
       <section className="scroll-mt-24 space-y-3" id="unmatched-list" ref={unmatchedSectionRef}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-[var(--color-text)]">未割当一覧</h2>
-          <Badge tone="neutral">{filteredUnmatched.length}/{unmatched.length}件</Badge>
+          <div>
+            <h2 className="text-lg font-semibold text-[var(--color-text)]">未割当一覧</h2>
+            {unmatchedLoading ? <p className="text-sm text-slate-500">最新の未割当を読み込み中です。</p> : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button disabled={!isOnline || unmatchedLoading} variant="secondary" onClick={() => void loadUnmatched()}>
+              {unmatchedLoading ? "更新中..." : "最新に更新"}
+            </Button>
+            <Badge tone="neutral">{filteredUnmatched.length}/{unmatched.length}件</Badge>
+          </div>
         </div>
-        {!unmatched.length ? (
+        {unmatchedLoadError && !unmatched.length ? (
+          <Card className="space-y-3">
+            <CardTitle>未割当一覧を取得できませんでした</CardTitle>
+            <CardDescription>
+              読み込みに失敗したため、空一覧として扱わず停止しています。通信と API を確認してから再試行してください。
+            </CardDescription>
+            <p className="text-sm text-[var(--color-danger)]">{unmatchedLoadError}</p>
+            <Button disabled={!isOnline || unmatchedLoading} onClick={() => void loadUnmatched()}>
+              {unmatchedLoading ? "再試行中..." : "再試行"}
+            </Button>
+          </Card>
+        ) : !unmatched.length ? (
           <EmptyState title="未割当はありません" description="NO_PRODUCT と INSUFFICIENT_STOCK がここに出ます。" />
         ) : (
           <>
