@@ -223,6 +223,12 @@ function InventoryPageContent({
       </Card>
 
       {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+      {loading && items.length ? (
+        <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-2 text-sm text-slate-500">
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-transparent" />
+          在庫を再取得しています…
+        </div>
+      ) : null}
       {loading && !items.length ? (
         <EmptyState title="在庫を読み込み中です" description="商品一覧を取得しています。少し待ってください。" />
       ) : !items.length ? (
