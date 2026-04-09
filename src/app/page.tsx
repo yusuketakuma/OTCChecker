@@ -92,7 +92,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const { showInstallPrompt, dismissInstallPrompt } = usePwaInstallState();
 
-  const loadSummary = useCallback(async (showRefreshing = false) => {
+  const loadSummary = useCallback(async (showRefreshing = false, signal?: AbortSignal) => {
     if (showRefreshing) {
       setRefreshing(true);
     } else {
@@ -100,12 +100,15 @@ export default function DashboardPage() {
     }
 
     try {
-      const summary = await fetchJson<DashboardSummary>("/api/dashboard/summary");
+      const summary = await fetchJson<DashboardSummary>("/api/dashboard/summary", { signal });
+      if (signal?.aborted) return;
       setData(summary);
       setError("");
     } catch (cause) {
+      if (signal?.aborted) return;
       setError((cause as Error).message);
     } finally {
+      if (signal?.aborted) return;
       if (showRefreshing) {
         setRefreshing(false);
       } else {
@@ -115,11 +118,15 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    void loadSummary();
+    const controller = new AbortController();
+    void loadSummary(false, controller.signal);
+    return () => controller.abort();
   }, [loadSummary]);
 
   useRefreshOnForeground(() => {
-    void loadSummary();
+    const controller = new AbortController();
+    void loadSummary(true, controller.signal);
+    return () => controller.abort();
   });
 
   return (
