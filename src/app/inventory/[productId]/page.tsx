@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { EmptyState } from "@/components/app/empty-state";
@@ -868,6 +869,13 @@ export default function InventoryDetailPage() {
 
   return (
     <div className="space-y-6">
+      <Link
+        className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-brand)] transition active:opacity-70"
+        href="/inventory"
+      >
+        ← 在庫一覧に戻る
+      </Link>
+
       <PageHeader
         eyebrow="Detail"
         title={product?.name ?? "在庫詳細"}
