@@ -166,7 +166,9 @@ function buildSalePreview(lots: Lot[], requestedQuantity: number | null) {
   let remaining = requestedQuantity;
 
   return lots
-    .filter((lot) => lot.status === "ACTIVE" && lot.quantity > 0)
+    .filter(
+      (lot) => lot.status === "ACTIVE" && lot.quantity > 0 && diffDaysFromToday(lot.expiryDate) >= 0,
+    )
     .map((lot) => {
       const consumeQuantity = Math.min(lot.quantity, remaining);
       remaining -= consumeQuantity;
@@ -1065,14 +1067,14 @@ export default function InventoryDetailPage() {
                   {preset}個
                 </button>
               ))}
-              {totalActiveQuantity > 0 ? (
+              {saleableQuantity > 0 ? (
                 <button
                   type="button"
                   disabled={!isOnline || selling}
                   className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 disabled:opacity-50"
-                  onClick={() => setSaleQuantity(String(totalActiveQuantity))}
+                  onClick={() => setSaleQuantity(String(saleableQuantity))}
                 >
-                  全在庫
+                  販売可能分すべて
                 </button>
               ) : null}
             </div>
