@@ -597,7 +597,7 @@ function ScanPageContent() {
       });
       setMessage(
         product
-          ? `既存SKUへ入荷登録しました。現在庫は ${product.inventorySummary.totalQuantity + parsedQuantity} 個の見込みです。`
+          ? "既存SKUへ入荷登録しました。必要なら在庫詳細で反映を確認してください。"
           : "新規SKUを作成して入荷登録しました。",
       );
       setJanCode("");
