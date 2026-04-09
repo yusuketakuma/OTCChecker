@@ -260,10 +260,12 @@ function InventoryPageContent({
                     ) : null}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-3 text-sm text-slate-600">
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
                   <span className="font-semibold text-[var(--color-text)]">{formatQuantity(item.totalQuantity)}個</span>
                   <span className="text-slate-400">|</span>
-                  <span>期限 {item.earliestExpiry ?? "-"}{expiryMeta ? ` (${expiryMeta.relativeLabel})` : ""}</span>
+                  <span>期限 {item.earliestExpiry ?? "-"}</span>
+                  <span className="text-slate-400">|</span>
+                  <span className="text-xs tabular-nums text-slate-500">JAN {item.janCode}</span>
                 </div>
               </Link>
               <div className="grid gap-2 sm:grid-cols-2">
