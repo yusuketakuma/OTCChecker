@@ -474,9 +474,9 @@ function ScanPageContent() {
     const nextTarget =
       lookupState.status === "missing"
         ? nameInputRef.current
-        : expiryDate
-          ? quantityInputRef.current
-          : expiryDateInputRef.current;
+        : !expiryDate
+          ? expiryDateInputRef.current
+          : null;
 
     if (!nextTarget) {
       return;
