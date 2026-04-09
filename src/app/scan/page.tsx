@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson, postJson } from "@/lib/client";
 import { normalizeJanCode } from "@/lib/csv";
 import { addDaysToDateKey, getExpiryStatusMeta, todayJstKey } from "@/lib/date";
@@ -415,6 +416,52 @@ function ScanPageContent() {
       controller.abort();
     };
   }, [isJanComplete, isOnline, normalizedJanCode]);
+
+  useRefreshOnForeground(() => {
+    if (!isOnline || !isJanComplete) {
+      return;
+    }
+
+    const code = normalizedJanCode;
+    lookupJanCodeRef.current = code;
+
+    fetchJson<ProductLookup>(`/api/products/jan/${code}`)
+      .then((result) => {
+        if (lookupJanCodeRef.current !== code) {
+          return;
+        }
+
+        if (result) {
+          setLookupState({
+            status: "resolved",
+            janCode: code,
+            product: result,
+          });
+          setName(result.name);
+          setSpec(result.spec);
+          pushRecentScan({
+            janCode: code,
+            name: result.name,
+            spec: result.spec,
+            productId: result.id,
+          });
+          return;
+        }
+
+        setLookupState({ status: "missing", janCode: code });
+      })
+      .catch((cause) => {
+        if (lookupJanCodeRef.current !== code) {
+          return;
+        }
+
+        setLookupState({
+          status: "error",
+          janCode: code,
+          message: (cause as Error).message,
+        });
+      });
+  });
 
   useEffect(() => {
     if (

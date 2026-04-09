@@ -8,6 +8,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { usePwaInstallState } from "@/hooks/use-pwa-install-state";
+import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson, putJson } from "@/lib/client";
 import { parseAlertDaysInput } from "@/lib/utils";
 
@@ -55,6 +56,21 @@ export default function SettingsPage() {
         // Keep settings usable even if version metadata cannot be loaded.
       });
   }, []);
+
+  useRefreshOnForeground(() => {
+    fetchJson<Settings>("/api/settings")
+      .then((data) => {
+        setSettings(data);
+        setAlertDays((current) => (hasUnsavedChanges ? current : data.defaultAlertDays.join(",")));
+      })
+      .catch((cause) => setError((cause as Error).message));
+
+    fetchJson<BuildInfo>("/api/version")
+      .then(setBuildInfo)
+      .catch(() => {
+        // Keep settings usable even if version metadata cannot be loaded.
+      });
+  });
 
   function toggleAlertDay(day: number) {
     const next = alertDaysInput.values.includes(day)
