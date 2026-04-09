@@ -69,12 +69,17 @@ function InventoryPageContent({
   const searchParams = useSearchParams();
   const [items, setItems] = useState<InventoryRow[]>([]);
   const [query, setQuery] = useState(initialQuery);
-  const [bucket, setBucket] = useState<InventoryTabKey>(initialBucket);
+  const [bucket, setBucket] = useState(initialBucket);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const deferredQuery = useDeferredValue(query);
   const activeQuery = query.trim();
   const hasActiveFilters = Boolean(activeQuery) || bucket !== "all";
+
+  useEffect(() => {
+    setQuery(initialQuery);
+    setBucket(initialBucket);
+  }, [initialBucket, initialQuery]);
 
   async function loadInventory(search: string, nextBucket: InventoryTabKey, signal: AbortSignal) {
     setLoading(true);
