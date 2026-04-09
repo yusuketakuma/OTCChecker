@@ -12,7 +12,6 @@ import {
   getExpiryBucket,
   normalizeAlertDays,
   parseDateOnly,
-  todayJstKey,
 } from "@/lib/date";
 import { type ImportRow, type PreviewRow, normalizeJanCode } from "@/lib/csv";
 import { getPrisma } from "@/lib/prisma";
@@ -761,9 +760,6 @@ async function applyManualSaleInTx(
     where: {
       productId: params.productId,
       status: InventoryLotStatus.ACTIVE,
-      expiryDate: {
-        gte: parseDateOnly(todayJstKey()),
-      },
     },
     orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
