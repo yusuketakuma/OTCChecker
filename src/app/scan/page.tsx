@@ -116,6 +116,13 @@ function ScanPageContent() {
     name: string;
     spec: string;
   } | null>(null);
+  const [lastSavedProduct, setLastSavedProduct] = useState<{
+    id: string;
+    janCode: string;
+    name: string;
+    spec: string;
+    quantity: number;
+  } | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScanEntry[]>(() => {
     if (typeof window === "undefined") {
       return [];
@@ -231,6 +238,7 @@ function ScanPageContent() {
     setSpec("");
     setMessage("");
     setSubmitError("");
+    setLastSavedProduct(null);
   }
 
   function pushRecentScan(entry: RecentScanEntry) {
@@ -462,6 +470,7 @@ function ScanPageContent() {
     );
     setMessage("");
     setSubmitError("");
+    setLastSavedProduct(null);
   }
 
   function handleQuantityKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -487,6 +496,8 @@ function ScanPageContent() {
       const code = normalizedJanCode;
 
       let recentProductId = product?.id ?? "";
+      const savedProductName = product?.name ?? name;
+      const savedProductSpec = product?.spec ?? spec;
 
       if (product?.id) {
         await postJson("/api/lots", {
@@ -509,13 +520,22 @@ function ScanPageContent() {
 
       setLastSubmittedDraft({
         janCode: code,
-        name: product?.name ?? name,
-        spec: product?.spec ?? spec,
+        name: savedProductName,
+        spec: savedProductSpec,
       });
+      if (recentProductId) {
+        setLastSavedProduct({
+          id: recentProductId,
+          janCode: code,
+          name: savedProductName,
+          spec: savedProductSpec,
+          quantity: parsedQuantity,
+        });
+      }
       pushRecentScan({
         janCode: code,
-        name: product?.name ?? name,
-        spec: product?.spec ?? spec,
+        name: savedProductName,
+        spec: savedProductSpec,
         ...(recentProductId ? { productId: recentProductId } : {}),
       });
       setMessage(
@@ -753,6 +773,35 @@ function ScanPageContent() {
             </div>
           </div>
         ) : null}
+        {lastSavedProduct && !janCode ? (
+          <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-950">
+            <div className="space-y-1">
+              <p className="font-semibold">直前の登録を確認</p>
+              <p>
+                {lastSavedProduct.name} / {lastSavedProduct.spec}
+              </p>
+              <p className="text-emerald-900/80">
+                JAN {lastSavedProduct.janCode} に {lastSavedProduct.quantity} 個を反映しました。
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Link
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
+                href={`/inventory/${lastSavedProduct.id}`}
+              >
+                在庫詳細を開く
+              </Link>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition active:scale-[0.99] disabled:opacity-50"
+                onClick={restoreLastSubmittedDraft}
+              >
+                同じ商品でもう一件
+              </button>
+            </div>
+          </div>
+        ) : null}
         {(expiryDate || (parsedQuantity ?? 1) > 1) ? (
           <div className="rounded-2xl bg-emerald-50/80 p-3 text-sm text-emerald-900">
             <div className="flex items-start justify-between gap-3">
@@ -776,7 +825,7 @@ function ScanPageContent() {
         <Button className="w-full" disabled={!canSubmit} onClick={submit}>
           {isSubmitting ? "登録中..." : isLookupPending ? "JAN照会中..." : "登録する"}
         </Button>
-        {lastSubmittedDraft && !janCode ? (
+        {lastSubmittedDraft && !lastSavedProduct && !janCode ? (
           <Button className="w-full" variant="secondary" disabled={isSubmitting} onClick={restoreLastSubmittedDraft}>
             同じ商品でもう一件
           </Button>
