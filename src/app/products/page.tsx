@@ -26,7 +26,7 @@ import {
 } from "@/lib/mobile-input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
-import { buildScanHref, formatLotNumber, formatQuantity } from "@/lib/utils";
+import { buildScanHref, formatQuantity } from "@/lib/utils";
 
 type ProductMasterSummary = {
   productId: string;
@@ -756,13 +756,10 @@ function ProductsPageContent({
                                 : "正常"}
                     </Badge>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
-                    <p className="col-span-2">
-                      ロット番号: {item.primaryLotId ? formatLotNumber(item.primaryLotId) : "-"}
-                    </p>
-                    <p>在庫数: {formatQuantity(item.totalQuantity)}個</p>
-                    <p>期限: {item.earliestExpiry ?? "-"}</p>
-                    <p className="col-span-2">JAN: {item.janCode}</p>
+                  <div className="mt-3 flex items-center gap-3 text-sm text-slate-600">
+                    <span className="font-semibold text-[var(--color-text)]">{formatQuantity(item.totalQuantity)}個</span>
+                    <span className="text-slate-400">|</span>
+                    <span>期限 {item.earliestExpiry ?? "-"}</span>
                   </div>
                 </Link>
                 <div className="grid gap-2 sm:grid-cols-2">
