@@ -404,6 +404,7 @@ function ProductsPageContent({
         return;
       }
 
+      setShowAddForm(false);
       keepFocusOn(`product-${result.id}`);
       await loadProducts("", "all");
     } catch (cause) {
