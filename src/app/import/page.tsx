@@ -407,26 +407,32 @@ function ImportPageContent({
     );
   }
 
-  const loadUnmatched = useCallback(async () => {
+  const loadUnmatched = useCallback(async (signal?: AbortSignal) => {
     setUnmatchedLoading(true);
 
     try {
-      const rows = await fetchJson<UnmatchedRow[]>("/api/unmatched");
+      const rows = await fetchJson<UnmatchedRow[]>("/api/unmatched", { signal });
+      if (signal?.aborted) return;
       applyUnmatchedRows(rows);
       setUnmatchedLoadError("");
     } catch (cause) {
+      if (signal?.aborted) return;
       setUnmatchedLoadError((cause as Error).message);
     } finally {
-      setUnmatchedLoading(false);
+      if (!signal?.aborted) setUnmatchedLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadUnmatched();
+    const controller = new AbortController();
+    void loadUnmatched(controller.signal);
+    return () => controller.abort();
   }, [loadUnmatched]);
 
   useRefreshOnForeground(() => {
-    void loadUnmatched();
+    const controller = new AbortController();
+    void loadUnmatched(controller.signal);
+    return () => controller.abort();
   });
 
   useEffect(() => {
