@@ -1,16 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function useRefreshOnForeground(refresh: () => void) {
+  const lastRefreshAtRef = useRef(0);
+
   useEffect(() => {
-    function handleFocus() {
+    function triggerRefresh() {
+      const now = Date.now();
+
+      if (now - lastRefreshAtRef.current < 300) {
+        return;
+      }
+
+      lastRefreshAtRef.current = now;
       refresh();
+    }
+
+    function handleFocus() {
+      triggerRefresh();
     }
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        refresh();
+        triggerRefresh();
       }
     }
 
