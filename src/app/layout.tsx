@@ -10,6 +10,20 @@ export const metadata: Metadata = {
     template: "%s | OTCChecker",
   },
   description: "健康食品の賞味期限と在庫を iPhone で管理する店舗向けアプリ",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "OTCChecker",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icon-192.png" },
+    ],
+  },
 };
 
 export default function RootLayout({
