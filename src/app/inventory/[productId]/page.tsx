@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson, postJson, putJson } from "@/lib/client";
+import { receiptExpiryPresets, quantityPresets as commonQuantityPresets } from "@/lib/presets";
 import {
   addDaysToDateKey,
   diffDaysFromToday,
@@ -72,20 +73,12 @@ const historyTabs: Array<{ key: HistoryTab; label: string }> = [
   { key: "adjustments", label: "調整" },
 ];
 
-const receiptExpiryPresets = [
-  { label: "今日", days: 0 },
-  { label: "+30日", days: 30 },
-  { label: "+90日", days: 90 },
-  { label: "+180日", days: 180 },
-] as const;
-
 const saleDatePresets = [
   { label: "今日", days: 0 },
   { label: "昨日", days: -1 },
   { label: "7日前", days: -7 },
 ] as const;
 
-const commonQuantityPresets = [1, 3, 5, 10] as const;
 const alertDayPresets = [30, 14, 7, 3, 0] as const;
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -1241,9 +1234,11 @@ export default function InventoryDetailPage() {
               const lotDomId = `lot-${lot.id}`;
               const isExpanded = expandedLotIds.has(lotDomId);
               const isArchived = lot.status === "ARCHIVED";
+              const isExpired = diffDaysFromToday(lot.expiryDate) < 0;
+              const isToday = diffDaysFromToday(lot.expiryDate) === 0;
 
               return (
-                <Card className={`space-y-4 scroll-mt-24 ${isArchived ? "opacity-70" : ""}`} id={lotDomId} key={lot.id}>
+                <Card className={`space-y-4 scroll-mt-24 ${isArchived ? "opacity-70" : ""} ${!isArchived && isExpired ? "bg-rose-50/60" : !isArchived && isToday ? "bg-amber-50/60" : ""}`} id={lotDomId} key={lot.id}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle>期限 {formatDateLabel(lot.expiryDate)}</CardTitle>

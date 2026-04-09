@@ -15,6 +15,7 @@ import { useRefreshOnForeground } from "@/hooks/use-refresh-on-foreground";
 import { fetchJson, postJson } from "@/lib/client";
 import { normalizeJanCode } from "@/lib/csv";
 import { addDaysToDateKey, getExpiryStatusMeta, todayJstKey } from "@/lib/date";
+import { receiptExpiryPresets, quantityPresets } from "@/lib/presets";
 import {
   coercePositiveIntegerInput,
   janInputProps,
@@ -58,14 +59,6 @@ type RecentScanEntry = {
 };
 
 const recentScanStorageKey = "otc-checker:recent-scans";
-const expiryPresets = [
-  { label: "今日", days: 0 },
-  { label: "+30日", days: 30 },
-  { label: "+90日", days: 90 },
-  { label: "+180日", days: 180 },
-] as const;
-
-const quantityPresets = [1, 3, 5, 10] as const;
 
 function normalizeRecentScanEntry(value: unknown): RecentScanEntry | null {
   if (typeof value === "string") {
@@ -725,7 +718,7 @@ function ScanPageContent() {
               onChange={(event) => setExpiryDate(event.target.value)}
             />
             <div className="flex flex-wrap gap-2">
-              {expiryPresets.map((preset) => {
+              {receiptExpiryPresets.map((preset) => {
                 const nextDate = addDaysToDateKey(todayJstKey(), preset.days);
 
                 return (

@@ -72,9 +72,9 @@ const quickActions = [
     className: "bg-[var(--color-brand)] text-white shadow-lg shadow-emerald-900/15",
   },
   {
-    href: "/import#unmatched-list",
-    title: "CSV取込",
-    description: "未割当確認まで直行",
+    href: "/inventory",
+    title: "在庫確認",
+    description: "期限・数量を一覧",
     className: "bg-white/92 text-[var(--color-text)] ring-1 ring-slate-200",
   },
   {
@@ -144,7 +144,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-[var(--color-text)]">今日のクイック操作</h2>
           <span className="text-sm text-slate-500">iPhone向けの最短導線</span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {quickActions.map((action) => (
             <Link
               href={action.href}

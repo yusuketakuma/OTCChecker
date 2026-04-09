@@ -12,6 +12,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { fetchJson, postJson } from "@/lib/client";
+import { receiptExpiryPresets, quantityPresets } from "@/lib/presets";
 import { addDaysToDateKey, getBucketMeta, todayJstKey } from "@/lib/date";
 import {
   clearStoredReceiptDefaults,
@@ -70,14 +71,7 @@ const productFilters = [
   { key: "outOfStock", label: "在庫なし" },
 ] as const;
 
-const receiptExpiryPresets = [
-  { label: "今日", days: 0 },
-  { label: "+30日", days: 30 },
-  { label: "+90日", days: 90 },
-  { label: "+180日", days: 180 },
-] as const;
 
-const quantityPresets = [1, 3, 5, 10] as const;
 
 type ProductFilterKey = (typeof productFilters)[number]["key"];
 
