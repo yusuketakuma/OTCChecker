@@ -30,6 +30,7 @@ export function BottomNav() {
 
           return (
             <Link
+              aria-current={active ? "page" : undefined}
               key={item.href}
               href={item.href}
               className={cn(
