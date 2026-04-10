@@ -727,7 +727,7 @@ function ProductsPageContent({
             const deleteConfirmOpen = pendingDeleteProductId === item.productId;
 
             return (
-              <Card className="space-y-3 scroll-mt-24" id={`product-${item.productId}`} key={item.productId}>
+              <Card className={`space-y-3 scroll-mt-24 ${item.totalQuantity === 0 ? "opacity-70" : ""}`} id={`product-${item.productId}`} key={item.productId}>
                 <Link
                   className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
                   href={`/inventory/${item.productId}`}
