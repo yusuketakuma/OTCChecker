@@ -901,6 +901,27 @@ export default function InventoryDetailPage() {
         description={product ? `${product.spec} / JAN ${product.janCode}` : "ロット詳細を取得中です。"}
       />
 
+      {product ? (
+        <div className="flex justify-end">
+          <Button
+            className="h-10 rounded-full px-4"
+            disabled={!isOnline}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(product.janCode);
+                setMessage("JANコードをコピーしました。");
+              } catch {
+                setError("JANコードのコピーに失敗しました。");
+              }
+            }}
+            type="button"
+            variant="secondary"
+          >
+            JANコピー
+          </Button>
+        </div>
+      ) : null}
+
       {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
       {message ? <p className="text-sm text-[var(--color-success)]">{message}</p> : null}
       {!isOnline ? (
