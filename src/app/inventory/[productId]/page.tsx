@@ -740,7 +740,7 @@ export default function InventoryDetailPage() {
         version: lot.version,
       });
       keepFocusOn(`lot-${lot.id}`);
-      setMessage("廃棄を登録しました。");
+      setMessage(`廃棄を登録しました（${disposalQuantity}個）。`);
       await load();
     } catch (cause) {
       setError((cause as Error).message);
@@ -877,7 +877,7 @@ export default function InventoryDetailPage() {
         transactionDate: saleDate || undefined,
       });
       keepFocusOn("manual-sale");
-      setMessage("手動売上を登録しました。");
+      setMessage(`手動売上を登録しました（${parsedSaleQuantity}個）。`);
       await load();
     } catch (cause) {
       setError((cause as Error).message);
