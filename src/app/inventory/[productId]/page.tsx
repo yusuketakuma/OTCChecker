@@ -1212,13 +1212,38 @@ export default function InventoryDetailPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[var(--color-text)]">ロット一覧</h2>
-          <Badge tone="neutral">{product?.lots.length ?? 0}件</Badge>
+          <div className="flex items-center gap-2">
+            <Badge tone="neutral">{product?.lots.filter((l) => l.status !== "ARCHIVED").length ?? 0}件</Badge>
+            {productSummary.archivedLotCount > 0 ? (
+              <button
+                type="button"
+                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition active:scale-[0.99]"
+                onClick={() => {
+                  const archivedIds = product?.lots
+                    .filter((l) => l.status === "ARCHIVED")
+                    .map((l) => `lot-${l.id}`) ?? [];
+                  setExpandedLotIds((current) => {
+                    const allShown = archivedIds.every((id) => current.has(`show-${id}`));
+                    const next = new Set(current);
+                    if (allShown) {
+                      archivedIds.forEach((id) => next.delete(`show-${id}`));
+                    } else {
+                      archivedIds.forEach((id) => next.add(`show-${id}`));
+                    }
+                    return next;
+                  });
+                }}
+              >
+                履歴 {productSummary.archivedLotCount}件 {product?.lots.filter((l) => l.status === "ARCHIVED").every((l) => expandedLotIds.has(`show-lot-${l.id}`)) ? "を非表示" : "を表示"}
+              </button>
+            ) : null}
+          </div>
         </div>
         {!product?.lots.length ? (
           <EmptyState title="ロットがありません" description="スキャン画面から入荷登録してください。" />
         ) : (
           <div className="space-y-3">
-            {product.lots.map((lot) => {
+            {product.lots.filter((lot) => lot.status !== "ARCHIVED" || expandedLotIds.has(`show-lot-${lot.id}`)).map((lot) => {
               const status = lotStatusMeta[lot.status];
               const lotBusy = pendingLotAction?.lotId === lot.id;
               const activeLotAction = lotBusy ? pendingLotAction.action : null;
