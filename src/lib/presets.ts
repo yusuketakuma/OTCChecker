@@ -12,4 +12,4 @@ export const receiptExpiryPresets = [
   { label: "+180日", days: 180 },
 ] as const;
 
-export const quantityPresets = [1, 3, 5, 10] as const;
+export const quantityPresets = [1, 3, 5, 10, 20] as const;
