@@ -106,6 +106,10 @@ function matchesInventoryBucket(bucket: ActiveInventoryBucket | "outOfStock", fi
     return true;
   }
 
+  if (filter === "outOfStock") {
+    return bucket === "outOfStock";
+  }
+
   if (bucket === "outOfStock") {
     return false;
   }

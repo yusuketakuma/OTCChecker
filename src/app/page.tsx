@@ -61,7 +61,7 @@ const cardConfig = [
     label: "在庫切れ",
     detail: "補充が必要",
     tone: "neutral",
-    href: "/inventory",
+    href: "/inventory?bucket=outOfStock",
   },
   {
     key: "unmatchedCount",

@@ -33,6 +33,7 @@ const tabs = [
   { key: "today", label: "本日" },
   { key: "7d", label: "7日以内" },
   { key: "30d", label: "30日以内" },
+  { key: "outOfStock", label: "在庫切れ" },
 ] as const;
 
 type InventoryTabKey = (typeof tabs)[number]["key"];
