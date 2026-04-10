@@ -23,6 +23,13 @@ export type InventoryProductSummary = {
   bucket: "expired" | "today" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
+export type InventoryBucket = InventoryProductSummary["bucket"];
+
+export type InventoryListResult = {
+  rows: InventoryProductSummary[];
+  counts: Record<InventoryBucket | "all", number>;
+};
+
 export type ProductMasterSummary = {
   productId: string;
   name: string;
@@ -248,9 +255,28 @@ export async function listInventoryProducts(params: {
         bucket: summary.bucket,
       };
     })
-    .filter((item) => matchesInventoryBucket(item.bucket, params.bucket));
+    ;
 
-  summaries.sort((left, right) => {
+  const counts = summaries.reduce<Record<InventoryBucket | "all", number>>(
+    (acc, item) => {
+      acc.all += 1;
+      acc[item.bucket] += 1;
+      return acc;
+    },
+    {
+      all: 0,
+      expired: 0,
+      today: 0,
+      within7: 0,
+      within30: 0,
+      safe: 0,
+      outOfStock: 0,
+    },
+  );
+
+  const rows = summaries.filter((item) => matchesInventoryBucket(item.bucket, params.bucket));
+
+  rows.sort((left, right) => {
     // Out-of-stock items sort to the end
     if (left.bucket === "outOfStock" && right.bucket !== "outOfStock") return 1;
     if (right.bucket === "outOfStock" && left.bucket !== "outOfStock") return -1;
@@ -264,7 +290,7 @@ export async function listInventoryProducts(params: {
     return left.name.localeCompare(right.name, "ja");
   });
 
-  return summaries;
+  return { rows, counts } satisfies InventoryListResult;
 }
 
 export async function listProductMasters(params: {

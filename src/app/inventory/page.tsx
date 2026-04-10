@@ -27,6 +27,8 @@ type InventoryRow = {
   bucket: "expired" | "today" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
+type InventoryCountKey = InventoryRow["bucket"] | "all";
+
 const tabs = [
   { key: "all", label: "全件" },
   { key: "expired", label: "期限切れ" },
@@ -69,6 +71,15 @@ function InventoryPageContent({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [items, setItems] = useState<InventoryRow[]>([]);
+  const [counts, setCounts] = useState<Record<InventoryCountKey, number>>({
+    all: 0,
+    expired: 0,
+    today: 0,
+    within7: 0,
+    within30: 0,
+    safe: 0,
+    outOfStock: 0,
+  });
   const [query, setQuery] = useState(initialQuery);
   const [bucket, setBucket] = useState(initialBucket);
   const [error, setError] = useState("");
@@ -76,6 +87,23 @@ function InventoryPageContent({
   const deferredQuery = useDeferredValue(query);
   const activeQuery = query.trim();
   const hasActiveFilters = Boolean(activeQuery) || bucket !== "all";
+
+  const tabCountKey = (key: InventoryTabKey): InventoryCountKey => {
+    switch (key) {
+      case "all":
+        return "all";
+      case "expired":
+        return "expired";
+      case "today":
+        return "today";
+      case "7d":
+        return "within7";
+      case "30d":
+        return "within30";
+      case "outOfStock":
+        return "outOfStock";
+    }
+  };
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -86,11 +114,12 @@ function InventoryPageContent({
     setLoading(true);
 
     try {
-      const data = await fetchJson<InventoryRow[]>(
+      const data = await fetchJson<{ rows: InventoryRow[]; counts: Record<InventoryCountKey, number> }>(
         `/api/products?q=${encodeURIComponent(search)}&bucket=${nextBucket}`,
         { signal },
       );
-      setItems(data);
+      setItems(data.rows);
+      setCounts(data.counts);
       setError("");
     } catch (cause) {
       if (!signal.aborted) {
@@ -188,7 +217,7 @@ function InventoryPageContent({
               onClick={() => setBucket(tab.key)}
               type="button"
             >
-              {tab.label}
+              {tab.label} ({counts[tabCountKey(tab.key)]})
             </button>
           ))}
         </div>
