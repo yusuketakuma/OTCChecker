@@ -75,6 +75,8 @@ const productFilters = [
 
 type ProductFilterKey = (typeof productFilters)[number]["key"];
 
+type ProductCountKey = ProductFilterKey;
+
 function normalizeProductFilter(value: string | null): ProductFilterKey {
   return productFilters.some((filter) => filter.key === value)
     ? (value as ProductFilterKey)
@@ -107,6 +109,12 @@ function ProductsPageContent({
   const searchParams = useSearchParams();
   const isOnline = useOnlineStatus();
   const [items, setItems] = useState<ProductMasterSummary[]>([]);
+  const [counts, setCounts] = useState<Record<ProductCountKey, number>>({
+    all: 0,
+    attention: 0,
+    stocked: 0,
+    outOfStock: 0,
+  });
   const [query, setQuery] = useState(initialQuery);
   const [filter, setFilter] = useState<ProductFilterKey>(initialFilter);
   const [name, setName] = useState("");
@@ -134,12 +142,13 @@ function ProductsPageContent({
     setLoadingItems(true);
 
     try {
-      const data = await fetchJson<ProductMasterSummary[]>(
+      const data = await fetchJson<{ items: ProductMasterSummary[]; counts: Record<ProductCountKey, number> }>(
         `/api/products?mode=master&q=${encodeURIComponent(search)}&filter=${nextFilter}`,
         { signal },
       );
       if (signal?.aborted) return;
-      setItems(data);
+      setItems(data.items);
+      setCounts(data.counts);
       setError("");
     } catch (cause) {
       if (signal?.aborted) return;
@@ -484,7 +493,7 @@ function ProductsPageContent({
               onClick={() => setFilter(item.key)}
               type="button"
             >
-              {item.label}
+              {item.label} ({counts[item.key]})
             </button>
           ))}
         </div>

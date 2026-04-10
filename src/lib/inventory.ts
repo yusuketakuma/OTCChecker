@@ -44,6 +44,8 @@ export type ProductMasterSummary = {
   bucket: "expired" | "today" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
+export type ProductMasterCountKey = "all" | "attention" | "stocked" | "outOfStock";
+
 type ProductSummaryBucket = ProductMasterSummary["bucket"];
 type ActiveInventoryBucket = InventoryProductSummary["bucket"];
 type ProductMasterFilter = "all" | "attention" | "stocked" | "outOfStock";
@@ -328,7 +330,7 @@ export async function listProductMasters(params: {
     return map;
   }, new Map());
 
-  return products
+  const mapped = products
     .map<ProductMasterSummary>((product) => {
       const lots = lotsByProductId.get(product.id) ?? [];
       const summary = summarizeActiveLots(lots);
@@ -346,8 +348,19 @@ export async function listProductMasters(params: {
         canDelete: (allLotCountByProductId.get(product.id) ?? 0) === 0,
         bucket: summary.bucket,
       };
-    })
-    .filter((product) => matchesProductMasterFilter(product.bucket, params.filter));
+    });
+
+  const counts: Record<ProductMasterCountKey, number> = {
+    all: mapped.length,
+    attention: mapped.filter((p) => matchesProductMasterFilter(p.bucket, "attention")).length,
+    stocked: mapped.filter((p) => matchesProductMasterFilter(p.bucket, "stocked")).length,
+    outOfStock: mapped.filter((p) => matchesProductMasterFilter(p.bucket, "outOfStock")).length,
+  };
+
+  return {
+    items: mapped.filter((product) => matchesProductMasterFilter(product.bucket, params.filter)),
+    counts,
+  };
 }
 
 export async function getDashboardSummary() {
