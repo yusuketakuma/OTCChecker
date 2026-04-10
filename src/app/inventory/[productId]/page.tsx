@@ -376,6 +376,7 @@ export default function InventoryDetailPage() {
     action: LotActionKind;
   } | null>(null);
   const [expandedLotIds, setExpandedLotIds] = useState<Set<string>>(new Set());
+  const [visibleArchivedLotIds, setVisibleArchivedLotIds] = useState<Set<string>>(new Set());
   const parsedReceiptQuantity = parsePositiveIntegerInput(receiptQuantity);
   const alertDaysInput = parseAlertDaysInput(editAlertDays);
   const parsedSaleQuantity = parsePositiveIntegerInput(saleQuantity);
@@ -450,6 +451,7 @@ export default function InventoryDetailPage() {
             .map((lot) => `lot-${lot.id}`),
         ),
       );
+      setVisibleArchivedLotIds(new Set());
       setError("");
     } catch (cause) {
       setError((cause as Error).message);
@@ -1222,19 +1224,17 @@ export default function InventoryDetailPage() {
                   const archivedIds = product?.lots
                     .filter((l) => l.status === "ARCHIVED")
                     .map((l) => `lot-${l.id}`) ?? [];
-                  setExpandedLotIds((current) => {
-                    const allShown = archivedIds.every((id) => current.has(`show-${id}`));
-                    const next = new Set(current);
+
+                  setVisibleArchivedLotIds((current) => {
+                    const allShown = archivedIds.length > 0 && archivedIds.every((id) => current.has(id));
                     if (allShown) {
-                      archivedIds.forEach((id) => next.delete(`show-${id}`));
-                    } else {
-                      archivedIds.forEach((id) => next.add(`show-${id}`));
+                      return new Set();
                     }
-                    return next;
+                    return new Set(archivedIds);
                   });
                 }}
               >
-                履歴 {productSummary.archivedLotCount}件 {product?.lots.filter((l) => l.status === "ARCHIVED").every((l) => expandedLotIds.has(`show-lot-${l.id}`)) ? "を非表示" : "を表示"}
+                履歴 {productSummary.archivedLotCount}件 {product?.lots.filter((l) => l.status === "ARCHIVED").every((l) => visibleArchivedLotIds.has(`lot-${l.id}`)) ? "を非表示" : "を表示"}
               </button>
             ) : null}
           </div>
@@ -1243,7 +1243,7 @@ export default function InventoryDetailPage() {
           <EmptyState title="ロットがありません" description="スキャン画面から入荷登録してください。" />
         ) : (
           <div className="space-y-3">
-            {product.lots.filter((lot) => lot.status !== "ARCHIVED" || expandedLotIds.has(`show-lot-${lot.id}`)).map((lot) => {
+            {product.lots.filter((lot) => lot.status !== "ARCHIVED" || visibleArchivedLotIds.has(`lot-${lot.id}`)).map((lot) => {
               const status = lotStatusMeta[lot.status];
               const lotBusy = pendingLotAction?.lotId === lot.id;
               const activeLotAction = lotBusy ? pendingLotAction.action : null;
