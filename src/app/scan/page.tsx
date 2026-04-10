@@ -109,6 +109,8 @@ function ScanPageContent() {
     janCode: string;
     name: string;
     spec: string;
+    quantity: string;
+    expiryDate: string;
   } | null>(null);
   const [lastSavedProduct, setLastSavedProduct] = useState<{
     id: string;
@@ -513,6 +515,8 @@ function ScanPageContent() {
     setJanCode(lastSubmittedDraft.janCode);
     setName(lastSubmittedDraft.name);
     setSpec(lastSubmittedDraft.spec);
+    setQuantity(lastSubmittedDraft.quantity);
+    setExpiryDate(lastSubmittedDraft.expiryDate);
     setLookupState(
       isOnline
         ? { status: "pending", janCode: lastSubmittedDraft.janCode }
@@ -575,6 +579,8 @@ function ScanPageContent() {
         janCode: code,
         name: savedProductName,
         spec: savedProductSpec,
+        quantity,
+        expiryDate,
       });
       if (recentProductId) {
         setLastSavedProduct({
