@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { formatDateLabel } from "@/lib/date";
+
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
 import { PwaInstallCard } from "@/components/app/pwa-install-card";
@@ -151,7 +153,7 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow="Dashboard"
         title="OTC-Checker"
-        description="薬局のOTC商品の管理"
+        description={`薬局のOTC商品の管理 / ${formatDateLabel(new Date())}`}
       />
 
       {showInstallPrompt ? <PwaInstallCard onDismiss={dismissInstallPrompt} /> : null}
