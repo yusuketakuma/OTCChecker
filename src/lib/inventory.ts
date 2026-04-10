@@ -705,16 +705,25 @@ export async function receiveStockInTx(
   params: { productId: string; expiryDate: string; quantity: number },
 ) {
   const expiryDate = parseDateOnly(params.expiryDate);
-  const existing = await tx.inventoryLot.findFirst({
-    where: {
-      productId: params.productId,
-      expiryDate,
-      status: {
-        in: [InventoryLotStatus.ACTIVE, InventoryLotStatus.ARCHIVED],
+  // Prefer ACTIVE lot to avoid unique constraint violation when both ACTIVE and ARCHIVED
+  // lots exist for the same product/expiry (unique is on [productId, expiryDate, status]).
+  const existing =
+    (await tx.inventoryLot.findFirst({
+      where: {
+        productId: params.productId,
+        expiryDate,
+        status: InventoryLotStatus.ACTIVE,
       },
-    },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-  });
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    })) ??
+    (await tx.inventoryLot.findFirst({
+      where: {
+        productId: params.productId,
+        expiryDate,
+        status: InventoryLotStatus.ARCHIVED,
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    }));
 
   if (existing) {
     const nextQuantity = existing.quantity + params.quantity;
