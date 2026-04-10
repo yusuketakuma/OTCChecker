@@ -34,7 +34,7 @@ export async function PUT(
     const nextStatus = parsed.data.quantity === 0 ? "ARCHIVED" : "ACTIVE";
     const updated = await prisma.$transaction(async (tx) => {
       const result = await tx.inventoryLot.update({
-        where: { id },
+        where: { id, version: lot.version },
         data: {
           quantity: parsed.data.quantity,
           status: nextStatus,
