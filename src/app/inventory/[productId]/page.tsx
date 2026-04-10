@@ -778,7 +778,7 @@ export default function InventoryDetailPage() {
         version: lot.version,
       });
       keepFocusOn(`lot-${lot.id}`);
-      setMessage("差分調整を登録しました。");
+      setMessage(`差分調整を登録しました（${delta > 0 ? "+" : ""}${delta}個）。`);
       await load();
     } catch (cause) {
       setError((cause as Error).message);
