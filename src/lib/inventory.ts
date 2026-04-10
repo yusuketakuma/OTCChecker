@@ -636,7 +636,7 @@ export async function executeImportBatch(previewId: string) {
           const nextQuantity = lot.quantity - item.quantity;
 
           await tx.inventoryLot.update({
-            where: { id: item.lotId },
+            where: { id: item.lotId, version: lot.version },
             data: {
               quantity: nextQuantity,
               version: { increment: 1 },
@@ -644,6 +644,10 @@ export async function executeImportBatch(previewId: string) {
               archivedAt: nextQuantity === 0 ? new Date() : undefined,
             },
           });
+
+          if (nextQuantity < 0) {
+            throw new Error(`LOT_OVERSELL: lot ${item.lotId} would go negative`);
+          }
 
           await tx.salesRecord.create({
             data: {
@@ -846,7 +850,7 @@ async function applyManualSaleInTx(
     const nextQuantity = lot.quantity - item.quantity;
 
     await tx.inventoryLot.update({
-      where: { id: item.lotId },
+      where: { id: item.lotId, version: lot.version },
       data: {
         quantity: nextQuantity,
         version: { increment: 1 },
