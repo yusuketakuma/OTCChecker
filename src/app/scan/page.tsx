@@ -390,6 +390,8 @@ function ScanPageContent() {
             spec: result.spec,
             productId: result.id,
           });
+          // Auto-focus quantity field after product lookup succeeds
+          quantityInputRef.current?.focus();
         } else {
           setLookupState({ status: "missing", janCode: code });
         }
