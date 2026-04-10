@@ -24,7 +24,7 @@ type InventoryRow = {
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
-  bucket: "expired" | "today" | "within7" | "within30" | "safe";
+  bucket: "expired" | "today" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 const tabs = [

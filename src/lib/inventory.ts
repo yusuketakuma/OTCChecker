@@ -20,7 +20,7 @@ export type InventoryProductSummary = {
   earliestExpiry: string | null;
   totalQuantity: number;
   activeLotCount: number;
-  bucket: "expired" | "today" | "within7" | "within30" | "safe";
+  bucket: "expired" | "today" | "within7" | "within30" | "safe" | "outOfStock";
 };
 
 export type ProductMasterSummary = {
@@ -101,9 +101,13 @@ function groupLotsByProductId<T extends { productId: string }>(lots: T[]) {
   }, new Map());
 }
 
-function matchesInventoryBucket(bucket: ActiveInventoryBucket, filter = "all") {
+function matchesInventoryBucket(bucket: ActiveInventoryBucket | "outOfStock", filter = "all") {
   if (filter === "all") {
     return true;
+  }
+
+  if (bucket === "outOfStock") {
+    return false;
   }
 
   if (filter === "expired") {
@@ -175,47 +179,78 @@ export async function listInventoryProducts(params: {
 }) {
   const prisma = await getPrisma();
   const productSearchWhere = buildProductSearchWhere(params.search);
-  const lots = await prisma.inventoryLot.findMany({
-    where: {
-      status: InventoryLotStatus.ACTIVE,
-      product: productSearchWhere,
-    },
-    include: {
-      product: true,
-    },
-    orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-  });
 
-  const summaries = Array.from(groupLotsByProductId(lots).values())
-    .map<InventoryProductSummary | null>((productLots) => {
+  // Fetch ACTIVE lots for stocked products
+  const [activeLots, products] = await Promise.all([
+    prisma.inventoryLot.findMany({
+      where: {
+        status: InventoryLotStatus.ACTIVE,
+        product: productSearchWhere,
+      },
+      include: {
+        product: true,
+      },
+      orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    }),
+    prisma.product.findMany({
+      where: productSearchWhere,
+      orderBy: [{ name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        spec: true,
+        janCode: true,
+        lots: {
+          where: { status: InventoryLotStatus.ACTIVE },
+          select: { id: true, quantity: true },
+        },
+      },
+    }),
+  ]);
+
+  const lotsByProductId = groupLotsByProductId(activeLots);
+
+  const summaries = products
+    .map<InventoryProductSummary>((p) => {
+      const productLots = lotsByProductId.get(p.id) ?? [];
       const firstLot = productLots[0];
+      const totalQuantity = productLots.reduce((sum, l) => sum + l.quantity, 0);
 
-      if (!firstLot) {
-        return null;
+      if (totalQuantity === 0) {
+        return {
+          productId: p.id,
+          name: p.name,
+          spec: p.spec,
+          janCode: p.janCode,
+          earliestLotId: null,
+          earliestExpiry: null,
+          totalQuantity: 0,
+          activeLotCount: 0,
+          bucket: "outOfStock" as const,
+        };
       }
 
       const summary = summarizeActiveLots(productLots);
 
-      if (summary.bucket === "outOfStock") {
-        return null;
-      }
-
       return {
-        productId: firstLot.productId,
-        name: firstLot.product.name,
-        spec: firstLot.product.spec,
-        janCode: firstLot.product.janCode,
-        earliestLotId: firstLot.id,
+        productId: p.id,
+        name: p.name,
+        spec: p.spec,
+        janCode: p.janCode,
+        earliestLotId: firstLot?.id ?? null,
         earliestExpiry: summary.earliestExpiry,
         totalQuantity: summary.totalQuantity,
         activeLotCount: summary.activeLotCount,
         bucket: summary.bucket,
       };
     })
-    .filter((item): item is InventoryProductSummary => item !== null)
     .filter((item) => matchesInventoryBucket(item.bucket, params.bucket));
 
   summaries.sort((left, right) => {
+    // Out-of-stock items sort to the end
+    if (left.bucket === "outOfStock" && right.bucket !== "outOfStock") return 1;
+    if (right.bucket === "outOfStock" && left.bucket !== "outOfStock") return -1;
+
     const dateCompare = (left.earliestExpiry ?? "").localeCompare(right.earliestExpiry ?? "");
 
     if (dateCompare !== 0) {
