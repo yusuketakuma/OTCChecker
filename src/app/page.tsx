@@ -18,6 +18,7 @@ type DashboardSummary = {
   expiredCount: number;
   within7Count: number;
   within30Count: number;
+  outOfStockCount: number;
   unmatchedCount: number;
   totalSkus: number;
   totalQuantity: number;
@@ -54,6 +55,13 @@ const cardConfig = [
     detail: "8-30日",
     tone: "info",
     href: "/inventory?bucket=30d",
+  },
+  {
+    key: "outOfStockCount",
+    label: "在庫切れ",
+    detail: "補充が必要",
+    tone: "neutral",
+    href: "/inventory",
   },
   {
     key: "unmatchedCount",
@@ -203,7 +211,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {cardConfig.map((item) => (
           <Link href={item.href} key={item.key}>
             <Card className="flex h-full min-h-36 flex-col bg-white/95 transition hover:-translate-y-0.5">

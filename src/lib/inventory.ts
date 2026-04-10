@@ -338,6 +338,7 @@ export async function getDashboardSummary() {
     expiredCount: 0,
     within7Count: 0,
     within30Count: 0,
+    outOfStockCount: 0,
     unmatchedCount,
     totalSkus: 0,
     totalQuantity: 0,
@@ -386,6 +387,24 @@ export async function getDashboardSummary() {
 
   summary.totalSkus = productIds.size;
   summary.totalQuantity = totalQuantity;
+
+  // Out-of-stock: products that have lots (non-DELETED) but no active stock.
+  // We already have all ACTIVE lots. Products with ACTIVE lots that have quantity > 0
+  // are stocked. Products with only archived lots are out-of-stock.
+  const productsWithStock = new Set<string>();
+  for (const lot of lots) {
+    if (lot.quantity > 0) {
+      productsWithStock.add(lot.productId);
+    }
+  }
+  const totalProductsWithLots = await prisma.inventoryLot.findMany({
+    where: { status: { not: InventoryLotStatus.DELETED } },
+    select: { productId: true },
+    distinct: ["productId"],
+  });
+  summary.outOfStockCount = totalProductsWithLots.filter(
+    (r) => !productsWithStock.has(r.productId),
+  ).length;
 
   summary.alertLots = summary.alertLots.slice(0, 10);
   return summary;
