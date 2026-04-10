@@ -117,6 +117,7 @@ function ScanPageContent() {
     spec: string;
     quantity: number;
     expiryDate: string;
+    currentQuantity?: number;
     lotId?: string;
   } | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScanEntry[]>(() => {
@@ -579,6 +580,8 @@ function ScanPageContent() {
           spec: savedProductSpec,
           quantity: parsedQuantity,
           expiryDate,
+          currentQuantity:
+            (product?.inventorySummary.totalQuantity ?? 0) + parsedQuantity,
           ...(savedLotId ? { lotId: savedLotId } : {}),
         });
       }
@@ -853,6 +856,11 @@ function ScanPageContent() {
               <p className="text-emerald-900/80">
                 JAN {lastSavedProduct.janCode} に {lastSavedProduct.quantity} 個を反映しました。
               </p>
+              {typeof lastSavedProduct.currentQuantity === "number" ? (
+                <p className="text-emerald-900/80">
+                  反映後の在庫: {lastSavedProduct.currentQuantity} 個
+                </p>
+              ) : null}
               <p className="text-emerald-900/80">今回の期限: {lastSavedProduct.expiryDate}</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
