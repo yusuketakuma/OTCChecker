@@ -816,6 +816,11 @@ function ScanPageContent() {
                 {inventoryExpiryMeta ? ` (${inventoryExpiryMeta.relativeLabel})` : ""}
               </p>
             </div>
+            {product.inventorySummary.bucket === "expired" ? (
+              <p className="mt-2 rounded-full bg-rose-100 px-3 py-1.5 text-center text-sm font-medium text-rose-800">
+                ⚠ 期限切れロットがあります。入荷前に廃棄登録を検討してください。
+              </p>
+            ) : null}
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <Link
                 className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
