@@ -346,6 +346,7 @@ export async function getDashboardSummary() {
     unmatchedCount,
     totalSkus: 0,
     totalQuantity: 0,
+    alertLotTotal: 0,
     alertLots: [] as Array<{
       lotId: string;
       productId: string;
@@ -410,6 +411,7 @@ export async function getDashboardSummary() {
     (r) => !productsWithStock.has(r.productId),
   ).length;
 
+  summary.alertLotTotal = summary.alertLots.length;
   summary.alertLots = summary.alertLots.slice(0, 10);
   return summary;
 }

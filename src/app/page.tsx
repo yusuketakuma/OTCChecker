@@ -32,6 +32,7 @@ type DashboardSummary = {
     bucket: string;
     janCode: string;
   }>;
+  alertLotTotal: number;
 };
 
 const cardConfig = [
@@ -255,6 +256,7 @@ export default function DashboardPage() {
         ) : !data?.alertLots.length ? (
           <EmptyState title="アラート対象はありません" description="安全圏の在庫のみです。" />
         ) : (
+          <>
           <div className="space-y-3">
             {data.alertLots.map((lot) => {
               const expiryMeta = getExpiryStatusMeta(lot.expiryDate);
@@ -310,6 +312,12 @@ export default function DashboardPage() {
               );
             })}
           </div>
+          {data.alertLotTotal > data.alertLots.length ? (
+            <p className="text-center text-sm text-slate-500">
+              他 {data.alertLotTotal - data.alertLots.length} 件
+            </p>
+          ) : null}
+          </>
         )}
       </section>
     </div>
