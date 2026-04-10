@@ -2,20 +2,9 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { fail, ok } from "@/lib/api";
+import { readAlertDays } from "@/lib/alert-days";
 import { normalizeAlertDays } from "@/lib/date";
 import { getPrisma } from "@/lib/prisma";
-
-function readAlertDays(value: Prisma.JsonValue | null | undefined) {
-  if (!Array.isArray(value)) {
-    return [30, 7, 0];
-  }
-
-  return normalizeAlertDays(
-    value
-      .map((item) => (typeof item === "number" ? item : Number(item)))
-      .filter((item) => Number.isInteger(item) && item >= 0),
-  );
-}
 
 const productUpdateSchema = z.object({
   name: z.string().trim().min(1).max(120),

@@ -6,13 +6,8 @@ import {
   UnmatchedReason,
 } from "@prisma/client";
 
-import {
-  diffDaysFromToday,
-  formatDateLabel,
-  getExpiryBucket,
-  normalizeAlertDays,
-  parseDateOnly,
-} from "@/lib/date";
+import { diffDaysFromToday, formatDateLabel, getExpiryBucket, parseDateOnly } from "@/lib/date";
+import { readAlertDays } from "@/lib/alert-days";
 import { type ImportRow, type PreviewRow, normalizeJanCode } from "@/lib/csv";
 import { getPrisma } from "@/lib/prisma";
 
@@ -51,18 +46,6 @@ type ActiveLotSeed = {
   expiryDate: Date;
   quantity: number;
 };
-
-function readAlertDays(value: Prisma.JsonValue | null | undefined) {
-  if (!Array.isArray(value)) {
-    return [30, 7, 0];
-  }
-
-  return normalizeAlertDays(
-    value
-      .map((item) => (typeof item === "number" ? item : Number(item)))
-      .filter((item): item is number => Number.isInteger(item) && item >= 0),
-  );
-}
 
 function getSummaryBucket(expiryDate: Date | string): ActiveInventoryBucket {
   const diffDays = diffDaysFromToday(expiryDate);
