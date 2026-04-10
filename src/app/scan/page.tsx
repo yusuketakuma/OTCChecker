@@ -394,6 +394,8 @@ function ScanPageContent() {
           quantityInputRef.current?.focus();
         } else {
           setLookupState({ status: "missing", janCode: code });
+          // Auto-focus name field for new product registration
+          nameInputRef.current?.focus();
         }
       })
       .catch((cause) => {
