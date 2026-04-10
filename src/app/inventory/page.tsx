@@ -241,9 +241,10 @@ function InventoryPageContent({
             const expiryMeta = item.earliestExpiry
               ? getExpiryStatusMeta(item.earliestExpiry)
               : null;
+            const outOfStock = item.totalQuantity === 0;
 
             return (
-              <Card className="space-y-3" key={item.productId}>
+              <Card className={`space-y-3 ${outOfStock ? "opacity-70" : ""}`} key={item.productId}>
               <Link
                 className="block rounded-2xl transition hover:bg-slate-50/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)]"
                 href={`/inventory/${item.productId}`}
@@ -254,16 +255,20 @@ function InventoryPageContent({
                     <CardDescription>{item.spec}</CardDescription>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <Badge tone={expiryMeta?.tone ?? "success"}>
-                      {expiryMeta?.shortLabel ?? "正常"}
-                    </Badge>
-                    {expiryMeta ? (
+                    {outOfStock ? (
+                      <Badge tone="neutral">在庫切れ</Badge>
+                    ) : (
+                      <Badge tone={expiryMeta?.tone ?? "success"}>
+                        {expiryMeta?.shortLabel ?? "正常"}
+                      </Badge>
+                    )}
+                    {!outOfStock && expiryMeta ? (
                       <span className="text-xs font-medium text-slate-500">{expiryMeta.relativeLabel}</span>
                     ) : null}
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
-                  <span className="font-semibold text-[var(--color-text)]">{formatQuantity(item.totalQuantity)}個</span>
+                  <span className={`font-semibold ${outOfStock ? "text-slate-400" : "text-[var(--color-text)]"}`}>{outOfStock ? "在庫なし" : `${formatQuantity(item.totalQuantity)}個`}</span>
                   <span className="text-slate-400">|</span>
                   <span>期限 {item.earliestExpiry ?? "-"}</span>
                   <span className="text-slate-400">|</span>
@@ -275,14 +280,14 @@ function InventoryPageContent({
               <div className="grid gap-2 sm:grid-cols-2">
                 <Link
                   aria-label={`${item.name}のスキャン入荷を開く`}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/15 transition active:scale-[0.99]"
+                  className={`inline-flex h-12 w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg transition active:scale-[0.99] ${outOfStock ? "bg-amber-600 shadow-amber-900/15" : "bg-[var(--color-brand)] shadow-emerald-900/15"}`}
                   href={buildScanHref({
                     janCode: item.janCode,
                     name: item.name,
                     spec: item.spec,
                   })}
                 >
-                  スキャン入荷
+                  {outOfStock ? "入荷登録" : "スキャン入荷"}
                 </Link>
                 {(item.bucket === "expired" || item.bucket === "today") ? (
                   <Link
