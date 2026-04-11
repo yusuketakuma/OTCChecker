@@ -756,6 +756,16 @@ function ProductsPageContent({
                     <span>期限 {item.earliestExpiry ?? "-"}</span>
                     <span className="text-slate-400">|</span>
                     <span className="text-xs tabular-nums text-slate-500">JAN {item.janCode}</span>
+                    <button
+                      className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 transition active:scale-[0.97]"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        try { await navigator.clipboard.writeText(item.janCode); } catch {}
+                      }}
+                      type="button"
+                    >
+                      コピー
+                    </button>
                   </div>
                 </Link>
                 <div className="grid gap-2 sm:grid-cols-2">
