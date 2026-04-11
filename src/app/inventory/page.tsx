@@ -80,6 +80,7 @@ function InventoryPageContent({
     safe: 0,
     outOfStock: 0,
   });
+  const [copyMessage, setCopyMessage] = useState("");
   const [query, setQuery] = useState(initialQuery);
   const [bucket, setBucket] = useState(initialBucket);
   const [error, setError] = useState("");
@@ -120,6 +121,7 @@ function InventoryPageContent({
       );
       setItems(data.rows);
       setCounts(data.counts);
+      setCopyMessage("");
       setError("");
     } catch (cause) {
       if (!signal.aborted) {
@@ -255,6 +257,7 @@ function InventoryPageContent({
       </Card>
 
       {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+      {copyMessage ? <p className="text-sm text-[var(--color-success)]">{copyMessage}</p> : null}
       {loading && items.length ? (
         <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-2 text-sm text-slate-500">
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-transparent" />
@@ -309,7 +312,13 @@ function InventoryPageContent({
                       className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 transition active:scale-[0.97]"
                       onClick={async (e) => {
                         e.preventDefault();
-                        try { await navigator.clipboard.writeText(item.janCode); } catch {}
+                        try {
+                          await navigator.clipboard.writeText(item.janCode);
+                          setCopyMessage(`${item.name} の JAN をコピーしました。`);
+                          setTimeout(() => setCopyMessage(""), 1500);
+                        } catch {
+                          setCopyMessage("JAN のコピーに失敗しました。");
+                        }
                       }}
                       type="button"
                     >

@@ -130,6 +130,7 @@ function ProductsPageContent({
   const [lastSubmittedDraft, setLastSubmittedDraft] = useState<LastSubmittedProductDraft | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const handledHashRef = useRef<string | null>(null);
@@ -497,6 +498,7 @@ function ProductsPageContent({
             </button>
           ))}
         </div>
+        {copyMessage ? <p className="text-sm text-[var(--color-success)]">{copyMessage}</p> : null}
         {filter !== "all" ? (
           <button
             type="button"
@@ -760,7 +762,13 @@ function ProductsPageContent({
                       className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 transition active:scale-[0.97]"
                       onClick={async (e) => {
                         e.preventDefault();
-                        try { await navigator.clipboard.writeText(item.janCode); } catch {}
+                        try {
+                          await navigator.clipboard.writeText(item.janCode);
+                          setCopyMessage(`${item.name} の JAN をコピーしました。`);
+                          setTimeout(() => setCopyMessage(""), 1500);
+                        } catch {
+                          setCopyMessage("JAN のコピーに失敗しました。");
+                        }
                       }}
                       type="button"
                     >
