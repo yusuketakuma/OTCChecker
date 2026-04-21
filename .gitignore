@@ -51,3 +51,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent memory / local session files (not for repo)
+memory/
+DREAMS.md
+MEMORY.md
