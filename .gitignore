@@ -34,7 +34,7 @@ USER.md
 # misc
 .DS_Store
 *.pem
-.omx/
+.omc/
 
 # debug
 npm-debug.log*
@@ -51,3 +51,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent memory / local session files (not for repo)
+memory/
+DREAMS.md
+MEMORY.md
