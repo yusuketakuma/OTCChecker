@@ -34,7 +34,7 @@ USER.md
 # misc
 .DS_Store
 *.pem
-.omx/
+.omc/
 
 # debug
 npm-debug.log*
